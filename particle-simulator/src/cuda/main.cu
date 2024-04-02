@@ -54,11 +54,11 @@ __global__ void updateParticles(Particle* d_particles, int n_particles, curandSt
 // Host function
 void display() {
 
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Render particles
     for (int i = 0; i < num_particles; i++) {
-        particles[i].renderCircle();
+        particles[i].renderSphere();
     }
 
     int blockSize = 256;
@@ -99,14 +99,13 @@ void timer( int value )
 bool initGL(int *argc, char **argv)
 {
     glutInit(argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
     glutInitWindowSize(800, 800);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
-    glutCreateWindow("Particle Simulator");
+    glutCreateWindow("3D Particle Simulator");
     glutPositionWindow(950,100);
     glutTimerFunc( 0, timer, 0 );
     glutDisplayFunc(display);
 
-    // Initialize GLEW
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
     if (err != GLEW_OK) {
@@ -114,13 +113,47 @@ bool initGL(int *argc, char **argv)
         return false;
     }
 
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+
+    // Setup perspective projection
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(60.0, 1.0, 0.1, 10.0);
+
+    // Setup the camera
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    gluLookAt(1000.0, 0.0, 1000.0,
+              0.0, 0.0, 0.0,
+              0.0, 1.0, 0.0);
+
     return true;
+    // glutInit(argc, argv);
+    // glutInitWindowSize(800, 800);
+    // glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
+    // glutCreateWindow("Particle Simulator");
+    // glutPositionWindow(950,100);
+    // glutTimerFunc( 0, timer, 0 );
+    // glutDisplayFunc(display);
+
+    // // Initialize GLEW
+    // glewExperimental = GL_TRUE;
+    // GLenum err = glewInit();
+    // if (err != GLEW_OK) {
+    //     fprintf(stderr, "GLEW initialization failed: %s\n", glewGetErrorString(err));
+    //     return false;
+    // }
+
+    // return true;
 }
 
 int main(int argc, char** argv) {
     // Set defaults
     srand(time(NULL));
-    num_particles = 5;
+    num_particles = 100;
     particle_size = 0.1f;
     int opt;
     bool explode = false;
@@ -150,27 +183,25 @@ int main(int argc, char** argv) {
         std::random_device rd;
         std::mt19937 gen(rd());
 
-        // Randomize velocity, position, and mass
+        // Randomize velocity and position in 3D
         std::uniform_real_distribution<float> dist(-2, 2);
-        std::uniform_real_distribution<float> rand(-0.95, 0.95);
+        std::uniform_real_distribution<float> randPosition(-0.95, 0.95);
         std::uniform_real_distribution<float> mass(1.5, 5);
 
-        // Make Particle
-        // make random particle velocity        
         float dx = dist(gen);
         float dy = dist(gen);
+        float dz = dist(gen);  // z-velocity
 
-        float x, y;
+        float x, y, z;
         if (explode) {
-            x = 0;
-            y = 0;
+            x = y = z = 0;  // Explode from center
         } else {
-            x = rand(gen);
-            y = rand(gen);
+            x = randPosition(gen);
+            y = randPosition(gen);
+            z = randPosition(gen);  // z-coordinate
         }
 
-
-        particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size);
+        particles[i] = Particle(Vector(x, y, z), Vector(dx, dy, dz), mass(gen), particle_size);
     }
 
 

@@ -25,7 +25,7 @@ public:
 
     // Other methods
     __device__ void updatePosition(float dt);
-    __host__ void renderCircle();
+    __host__ void renderSphere();
     __device__ void wallBounce();
 
     __device__ bool collidesWith(const Particle& other) const;

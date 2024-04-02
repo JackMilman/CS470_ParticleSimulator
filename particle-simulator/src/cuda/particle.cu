@@ -7,7 +7,7 @@
 
 #define PI 3.14159265f
 
-Particle::Particle() : position(Vector(0, 0)), velocity(Vector(0, 0)), mass(1), radius(1) {}
+Particle::Particle() : position(Vector(0, 0, 0)), velocity(Vector(0, 0, 0)), mass(1), radius(1) {}
 Particle::Particle(const Vector& position, const Vector& velocity, float mass, float radius ) : position(position), velocity(velocity), mass(mass), radius(radius) {}
 
 __host__ __device__ const Vector& Particle::getPosition() const {
@@ -46,33 +46,40 @@ __device__ void Particle::updatePosition(float deltaTime) {
     this->position += this->velocity * deltaTime;
 }
 
-__host__ void Particle::renderCircle() {
+__host__ void Particle::renderSphere() {
     GLfloat ballRadius = (GLfloat) this->radius;   // Radius of the bouncing ball
     GLfloat ballX = (GLfloat) this->position.getX();
     GLfloat ballY = (GLfloat) this->position.getY();
+    GLfloat ballZ = (GLfloat) this->position.getZ();
 
     glMatrixMode(GL_MODELVIEW);    // To operate on the model-view matrix
     glLoadIdentity();              // Reset model-view matrix
 
-    glTranslatef(ballX, ballY, 0.0f);  // Translate to (xPos, yPos)
+    glTranslatef(ballX, ballY, ballZ);  // Translate to (xPos, yPos)
+
+    glColor3f(1, 0, 1);
+
+    glutSolidSphere(ballRadius, 1, 1);
     // Use triangular segments to form a circle
-    glBegin(GL_TRIANGLE_FAN);
-        glColor3f(1, 0, 1);
-        glVertex2f(0.0f, 0.0f);       // Center of circle
-        int numSegments = 100;
-        GLfloat angle;
-        for (int i = 0; i <= numSegments; i++) { // Last vertex same as first vertex
-            angle = (i * 2.0f * PI) / numSegments;  // 360 deg for all segments
-            glVertex2f(cos(angle) * ballRadius, sin(angle) * ballRadius);
-        }
-    glEnd();
+    // glBegin(GL_TRIANGLE_FAN);
+    //     glColor3f(1, 0, 1);
+    //     glVertex2f(0.0f, 0.0f);       // Center of circle
+    //     int numSegments = 100;
+    //     GLfloat angle;
+    //     for (int i = 0; i <= numSegments; i++) { // Last vertex same as first vertex
+    //         angle = (i * 2.0f * PI) / numSegments;  // 360 deg for all segments
+    //         glVertex2f(cos(angle) * ballRadius, sin(angle) * ballRadius);
+    //     }
+    // glEnd();
 }
 
 __device__ void Particle::wallBounce() {
     float x = this->position.getX();
     float y = this->position.getY();
+    float z = this->position.getZ();
     float dx = this->velocity.getX();
     float dy = this->velocity.getY();
+    float dz = this->velocity.getZ();
     float radius = this->getRadius();
     
     if (x + radius > 1) {
@@ -90,6 +97,14 @@ __device__ void Particle::wallBounce() {
         this->position.setY(-1 + radius);
         this->velocity.setY(-dy);
     }
+
+    if (z + radius > 1) {
+        this->position.setZ(1 - radius);
+        this->velocity.setZ(-dz);
+    } else if (z - radius < -1) {
+        this->position.setZ(-1 + radius);
+        this->velocity.setZ(-dz);
+    }
 }
 
 __device__ bool Particle::collidesWith(const Particle& other) const {
@@ -99,7 +114,8 @@ __device__ bool Particle::collidesWith(const Particle& other) const {
     float p2Radius = other.getRadius();
     float dx = p1Pos.getX() - p2Pos.getX();
     float dy = p1Pos.getY() - p2Pos.getY();
-    float squaredDistance = dx * dx + dy * dy;
+    float dz = p1Pos.getZ() - p2Pos.getZ();
+    float squaredDistance = dx * dx + dy * dy + dz * dz;
 
     float radiiSum = p1Radius + p2Radius;
     float squaredSumOfRadii = radiiSum * radiiSum;
@@ -112,11 +128,13 @@ __device__ void Particle::resolveCollision(Particle& other) {
     Vector p1Pos = this->getPosition();
     Vector p2Pos = other.getPosition();
 
-    float distance = sqrt(pow(p1Pos.getX() - p2Pos.getX(), 2) + pow(p1Pos.getY() - p2Pos.getY(), 2));
-    Vector collision = (p1Pos - p2Pos) / distance;
+    float distance = sqrt(pow(p1Pos.getX() - p2Pos.getX(), 2) + pow(p1Pos.getY() - p2Pos.getY(), 2) + pow(p1Pos.getZ() - p2Pos.getZ(), 2));
+    Vector collision;
     if (distance == 0) {
-        collision = Vector(1, 0);
+        collision = Vector(1, 0, 0);  // Avoid division by zero; arbitrary collision vector
         distance = 1;
+    } else {
+        collision = (p1Pos - p2Pos) / distance;  // Normalized collision vector
     }
 
     // components of velocity along collision vector
@@ -133,9 +151,12 @@ __device__ void Particle::resolveCollision(Particle& other) {
     // Prevent particles from overlapping
     float radiiSum = this->getRadius() + other.getRadius();
     float overlap = radiiSum - distance;
-    float overlap1 = overlap * other.getMass() / (this->getMass() + other.getMass());
-    float overlap2 = overlap * this->getMass() / (this->getMass() + other.getMass());
-    this->setPosition(this->getPosition() + collision * overlap1);
-    other.setPosition(other.getPosition() - collision * overlap2);
+    if (overlap > 0) {
+        float overlap1 = overlap * other.getMass() / (this->getMass() + other.getMass());
+        float overlap2 = overlap * this->getMass() / (this->getMass() + other.getMass());
+        this->setPosition(this->getPosition() + collision * overlap1);
+        other.setPosition(other.getPosition() - collision * overlap2);
+    }
+    
 }
 
