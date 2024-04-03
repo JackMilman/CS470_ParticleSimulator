@@ -131,23 +131,6 @@ bool initGL(int *argc, char **argv)
               0.0, 1.0, 0.0);
 
     return true;
-    // glutInit(argc, argv);
-    // glutInitWindowSize(800, 800);
-    // glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
-    // glutCreateWindow("Particle Simulator");
-    // glutPositionWindow(950,100);
-    // glutTimerFunc( 0, timer, 0 );
-    // glutDisplayFunc(display);
-
-    // // Initialize GLEW
-    // glewExperimental = GL_TRUE;
-    // GLenum err = glewInit();
-    // if (err != GLEW_OK) {
-    //     fprintf(stderr, "GLEW initialization failed: %s\n", glewGetErrorString(err));
-    //     return false;
-    // }
-
-    // return true;
 }
 
 int main(int argc, char** argv) {

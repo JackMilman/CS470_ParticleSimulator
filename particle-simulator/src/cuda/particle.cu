@@ -58,17 +58,6 @@ __host__ void Particle::renderSphere() {
     glColor3f(1, 0, 1);
 
     glutSolidSphere(ballRadius, 100, 100);
-    // Use triangular segments to form a circle
-    // glBegin(GL_TRIANGLE_FAN);
-    //     glColor3f(1, 0, 1);
-    //     glVertex2f(0.0f, 0.0f);       // Center of circle
-    //     int numSegments = 100;
-    //     GLfloat angle;
-    //     for (int i = 0; i <= numSegments; i++) { // Last vertex same as first vertex
-    //         angle = (i * 2.0f * PI) / numSegments;  // 360 deg for all segments
-    //         glVertex2f(cos(angle) * ballRadius, sin(angle) * ballRadius);
-    //     }
-    // glEnd();
 }
 
 __device__ void Particle::wallBounce() {
