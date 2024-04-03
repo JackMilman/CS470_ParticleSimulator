@@ -115,7 +115,11 @@ __device__ void Particle::resolveCollision(Particle& other) {
     Vector p1Pos = this->getPosition();
     Vector p2Pos = other.getPosition();
 
-    float distance = sqrt(pow(p1Pos.getX() - p2Pos.getX(), 2) + pow(p1Pos.getY() - p2Pos.getY(), 2) + pow(p1Pos.getZ() - p2Pos.getZ(), 2));
+    float diff_x = pow(p1Pos.getX() - p2Pos.getX(), 2);
+    float diff_y = pow(p1Pos.getY() - p2Pos.getY(), 2);
+    float diff_z = pow(p1Pos.getZ() - p2Pos.getZ(), 2);
+    float distance = sqrt(diff_x + diff_y + diff_z);
+    
     Vector collision;
     if (distance == 0) {
         collision = Vector(1, 0, 0);  // Avoid division by zero; arbitrary collision vector
