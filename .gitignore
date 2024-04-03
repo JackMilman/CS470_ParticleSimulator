@@ -1,0 +1,6 @@
+# Ignore compiled file regardless of location
+main.o
+
+# Ignore executables
+app
+app_serial
