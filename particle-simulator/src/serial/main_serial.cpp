@@ -7,6 +7,7 @@
 #include <random>
 #include <cstdlib>
 #include <unistd.h>
+#include <set>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -15,6 +16,8 @@
 #include "particle_serial.cpp"
 #include "vector_serial.h"
 #include "vector_serial.cpp"
+#include "edge.cpp"
+#include "edge.h"
 
 #include <math.h>
 #define PI 3.14159265f
@@ -23,10 +26,87 @@ int num_particles;
 float particle_size;
 Particle* particles;
 
+Edge* edgesByX;
+int num_edges;
+
 int lastTime;
 
 // GL functionality
 bool initGL(int *argc, char **argv);
+
+void sortByX(Edge* edges) {
+    // Simple insertion sort for the particles, sorting by their x-positions. This is to be used in sweep-and-prune.
+    for (int i = 1; i < num_edges; i++) {
+        for (int j = i - 1; j >= 0; j--) {
+            Particle p_j = particles[edges[j].getParentIdx()];
+            Particle p_next_j = particles[edges[j + 1].getParentIdx()];
+
+            float j_x = p_j.getPosition().getX();
+            if (edges[j].getIsLeft()) j_x -= p_j.getRadius();
+            else j_x += p_j.getRadius();
+
+            float j_next_x = p_next_j.getPosition().getX();
+            if (edges[j + 1].getIsLeft()) j_next_x -= p_next_j.getRadius();
+            else j_next_x += p_next_j.getRadius();
+
+            if (j_x < j_next_x) break;
+            Edge tmp = edges[j];
+            edges[j] = edges[j + 1];
+            edges[j + 1] = tmp;
+        }
+    }
+    // for (int i = 0; i < num_edges; i++) {
+    //     printf("(X:%0.02f Center: %0.02f) ", particles[edges[i].getParentIdx()].getPosition().getX(), particles[edges[i].getParentIdx()].getPosition().getX());
+    // }
+    // printf("\n");
+}
+
+
+
+inline bool operator<(const Particle& lhs, const Particle& rhs)
+{
+  return lhs.getID() < rhs.getID();
+}
+
+void sweepAndPruneByX() {
+    sortByX(edgesByX);
+    std::set<int> touching ; // indexes of particles touched by the line at this point
+    for (int i = 0; i < num_edges; i++) {
+        if (edgesByX[i].getIsLeft()) {
+            for (auto itr : touching) {
+                // edgesByX[i].getParent().resolveCollision(itr);
+                Particle& p_edge = particles[edgesByX[i].getParentIdx()];
+                Particle& p_other = particles[itr];
+                p_edge.resolveCollision(p_other);
+            }
+            touching.insert(i);
+        } else {
+            touching.erase(i);
+        }
+    }
+
+    // std::map<Edge, Particle> overlapping;
+    // Edge* edges = edgesByX;
+    // for (int i = 0; i < num_edges; i++) {
+    //     for (int j = i - 1; j >= 0; j--) {
+    //         float j_x = edges[j].getX();
+    //         float j_next_x = edges[j + 1].getX();
+    //         if (j_x < j_next_x) break;
+    //         Edge tmp = edges[j];
+    //         edges[j] = edges[j+1];
+    //         edges[j+1] = tmp;
+
+    //         Edge edge1 = edges[j];
+    //         Edge edge2 = edges[j + 1];
+
+    //         if (edge1.getIsLeft() && !edge2.getIsLeft()) {
+    //             overlapping.insert(edge1, )
+    //         } else if (!edge1.getIsLeft() && edge2.getIsLeft()) {
+                
+    //         }
+    //     }
+    // }
+}
 
 // OpenGL rendering
 void display() {
@@ -54,12 +134,13 @@ void display() {
         particles[i].updatePosition(delta);
         particles[i].wallBounce();
 
-        // Check for collisions with other particles
-        for (int j = i + 1; j < num_particles; j++) {
-            if (particles[i].collidesWith(particles[j])) {
-                particles[i].resolveCollision(particles[j]);
-            }
-        }
+        // // Check for collisions with other particles
+        // for (int j = i + 1; j < num_particles; j++) {
+        //     if (particles[i].collidesWith(particles[j])) {
+        //         particles[i].resolveCollision(particles[j]);
+        //     }
+        // }
+        sweepAndPruneByX();
     }
 
     glutSwapBuffers();
@@ -121,6 +202,8 @@ int main(int argc, char** argv) {
     }
 
     particles = (Particle*) calloc(num_particles, sizeof(Particle));
+    num_edges = num_particles * 2;
+    edgesByX = (Edge*) calloc(num_edges, sizeof(Edge));
 
     for (int i = 0; i < num_particles; i++) {
         std::random_device rd;
@@ -144,8 +227,14 @@ int main(int argc, char** argv) {
             y = rand(gen);
         }
 
-        particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size);
+        particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size, i);
     }
+
+    for (int i = 0; i < num_particles; i++) {
+        edgesByX[i*2] = Edge(i, false);
+        edgesByX[i*2 + 1] = Edge(i, true);
+    }
+    sortByX(edgesByX);
 
     initGL(&argc, argv);
     lastTime = 0;

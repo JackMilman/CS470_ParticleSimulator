@@ -8,6 +8,8 @@
 #include <cstdlib>
 #include <stack>
 #include <unistd.h>
+#include <set>
+#include <map>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -16,6 +18,8 @@
 #include "particle.cu"
 #include "vector.cuh"
 #include "vector.cu"
+#include "edge.cu"
+#include "edge.cuh"
 
 #include <curand.h>
 #include <curand_kernel.h>
@@ -26,10 +30,57 @@ Particle* particles;
 Particle* device_particles;
 curandState* states;
 
+Edge* edgesByX;
+int num_edges;
+
 int lastTime;
 
 // GL functionality
 bool initGL(int *argc, char **argv);
+
+void sortByX(Edge* edges) {
+    // Simple insertion sort for the particles, sorting by their x-positions. This is to be used in sweep-and-prune.
+    for (int i = 1; i < num_edges; i++) {
+        for (int j = i - 1; j >= 0; j--) {
+            float j_x = edges[j].getX();
+            float j_next_x = edges[j + 1].getX();
+            if (j_x < j_next_x) break;
+            Edge tmp = edges[j];
+            edges[j] = edges[j + 1];
+            edges[j + 1] = tmp;
+        }
+    }
+    for (int i = 0; i < num_edges; i++) {
+        printf("(X:%0.02f Parent-Center: %0.02f)", edges[i].getX(), edges[i].getParent().getPosition().getX());
+    }
+    printf("\n");
+}
+
+void sweepAndPruneByX() {
+
+    // std::map<Edge, Particle> overlapping;
+    // Edge* edges = edgesByX;
+    // for (int i = 0; i < num_edges; i++) {
+    //     for (int j = i - 1; j >= 0; j--) {
+    //         float j_x = edges[j].getX();
+    //         float j_next_x = edges[j + 1].getX();
+    //         if (j_x < j_next_x) break;
+    //         Edge tmp = edges[j];
+    //         edges[j] = edges[j+1];
+    //         edges[j+1] = tmp;
+
+    //         Edge edge1 = edges[j];
+    //         Edge edge2 = edges[j + 1];
+
+    //         if (edge1.getIsLeft() && !edge2.getIsLeft()) {
+    //             overlapping.insert(edge1, )
+    //         } else if (!edge1.getIsLeft() && edge2.getIsLeft()) {
+                
+    //         }
+    //     }
+    // }
+
+}
 
 // Check for collisions and resolve them
 __global__ void checkCollision(Particle* d_particles, int n_particles) {
@@ -87,6 +138,8 @@ void display() {
 
     cudaDeviceSynchronize();
 
+    // sweepAndPrune();
+
     glutSwapBuffers();
 }
 
@@ -126,7 +179,7 @@ bool initGL(int *argc, char **argv)
     // Setup the camera
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    gluLookAt(1000.0, 0.0, 1000.0,
+    gluLookAt(100.0, 0.0, 100.0,
               0.0, 0.0, 0.0,
               0.0, 1.0, 0.0);
 
@@ -136,8 +189,8 @@ bool initGL(int *argc, char **argv)
 int main(int argc, char** argv) {
     // Set defaults
     srand(time(NULL));
-    num_particles = 100;
-    particle_size = 0.1f;
+    num_particles = 10;
+    particle_size = 0.01f;
     int opt;
     bool explode = false;
 
@@ -161,6 +214,8 @@ int main(int argc, char** argv) {
     }
 
     particles = (Particle*) calloc(num_particles, sizeof(Particle));
+    num_edges = num_particles * 2;
+    edgesByX = (Edge*) calloc(num_edges, sizeof(Edge));
 
     for (int i = 0; i < num_particles; i++) {
         std::random_device rd;
@@ -168,7 +223,8 @@ int main(int argc, char** argv) {
 
         // Randomize velocity, position, depth, and mass
         std::uniform_real_distribution<float> velocity(-2, 2);
-        std::uniform_real_distribution<float> position(-0.95, 0.95);
+        std::uniform_real_distribution<float> position_x(X_MIN + particle_size, X_MAX - particle_size);
+        std::uniform_real_distribution<float> position_y(Y_MIN + particle_size, Y_MAX - particle_size);
         std::uniform_real_distribution<float> position_z(Z_MIN + particle_size, Z_MAX - particle_size);
         std::uniform_real_distribution<float> mass(1.5, 5);
 
@@ -178,18 +234,22 @@ int main(int argc, char** argv) {
 
         float x, y, z;
         if (explode) {
-            x = 0;
-            y = 0;
-            z = -1.0;  // Explode from center
+            x = (X_MAX + X_MIN) / 2;
+            y = (Y_MAX + Y_MIN) / 2;
+            z = (Z_MAX + Z_MIN) / 2;  // Explode from center
         } else {
-            x = position(gen);
-            y = position(gen);
+            x = position_x(gen);
+            y = position_y(gen);
             z = position_z(gen);  // z-coordinate
         }
 
         particles[i] = Particle(Vector(x, y, z), Vector(dx, dy, dz), mass(gen), particle_size);
     }
-
+    for (int i = 0; i < num_particles; i++) {
+        edgesByX[i*2] = Edge(particles[i], false);
+        edgesByX[i*2 + 1] = Edge(particles[i], true);
+    }
+    sortByX(edgesByX);
 
     // Init the device particles
     cudaMalloc((void**)&device_particles, num_particles * sizeof(Particle));
