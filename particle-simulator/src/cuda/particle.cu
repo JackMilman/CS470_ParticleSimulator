@@ -5,8 +5,6 @@
 
 #include "particle.cuh"
 
-#define PI 3.14159265f
-
 Particle::Particle() : position(Vector(0, 0, 0)), velocity(Vector(0, 0, 0)), mass(1), radius(1) {}
 Particle::Particle(const Vector& position, const Vector& velocity, float mass, float radius ) : position(position), velocity(velocity), mass(mass), radius(radius) {}
 
@@ -59,7 +57,7 @@ __host__ void Particle::renderSphere() {
 
     glColor3f(1, 0, 1);
 
-    glutSolidSphere(ballRadius, 1, 1);
+    glutSolidSphere(ballRadius, 100, 100);
     // Use triangular segments to form a circle
     // glBegin(GL_TRIANGLE_FAN);
     //     glColor3f(1, 0, 1);
@@ -77,33 +75,33 @@ __device__ void Particle::wallBounce() {
     float x = this->position.getX();
     float y = this->position.getY();
     float z = this->position.getZ();
-    float dx = this->velocity.getX();
-    float dy = this->velocity.getY();
-    float dz = this->velocity.getZ();
+    float delta_x = this->velocity.getX();
+    float delta_y = this->velocity.getY();
+    float delta_z = this->velocity.getZ();
     float radius = this->getRadius();
     
-    if (x + radius > 1) {
-        this->position.setX(1 - radius);
-        this->velocity.setX(-dx);
-    } else if (x - radius < -1) {
-        this->position.setX(-1 + radius);
-        this->velocity.setX(-dx);
+    if (x + radius > X_MAX) {
+        this->position.setX(X_MAX - radius);
+        this->velocity.setX(-delta_x);
+    } else if (x - radius < X_MIN) {
+        this->position.setX(X_MIN + radius);
+        this->velocity.setX(-delta_x);
     }
 
-    if (y + radius > 1) {
-        this->position.setY(1 - radius);
-        this->velocity.setY(-dy);
-    } else if (y - radius < -1) {
-        this->position.setY(-1 + radius);
-        this->velocity.setY(-dy);
+    if (y + radius > Y_MAX) {
+        this->position.setY(Y_MAX - radius);
+        this->velocity.setY(-delta_y);
+    } else if (y - radius < Y_MIN) {
+        this->position.setY(Y_MIN + radius);
+        this->velocity.setY(-delta_y);
     }
 
-    if (z + radius > 1) {
-        this->position.setZ(1 - radius);
-        this->velocity.setZ(-dz);
-    } else if (z - radius < -1) {
-        this->position.setZ(-1 + radius);
-        this->velocity.setZ(-dz);
+    if (z + radius > Z_MAX) {
+        this->position.setZ(Z_MAX - radius);
+        this->velocity.setZ(-delta_z);
+    } else if (z - radius < Z_MIN) {
+        this->position.setZ(Z_MIN + radius);
+        this->velocity.setZ(-delta_z);
     }
 }
 

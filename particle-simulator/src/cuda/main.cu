@@ -99,8 +99,8 @@ void timer( int value )
 bool initGL(int *argc, char **argv)
 {
     glutInit(argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
     glutInitWindowSize(800, 800);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
     glutCreateWindow("3D Particle Simulator");
     glutPositionWindow(950,100);
     glutTimerFunc( 0, timer, 0 );
@@ -183,22 +183,25 @@ int main(int argc, char** argv) {
         std::random_device rd;
         std::mt19937 gen(rd());
 
-        // Randomize velocity and position in 3D
-        std::uniform_real_distribution<float> dist(-2, 2);
-        std::uniform_real_distribution<float> randPosition(-0.95, 0.95);
+        // Randomize velocity, position, depth, and mass
+        std::uniform_real_distribution<float> velocity(-2, 2);
+        std::uniform_real_distribution<float> position(-0.95, 0.95);
+        std::uniform_real_distribution<float> position_z(Z_MIN + particle_size, Z_MAX - particle_size);
         std::uniform_real_distribution<float> mass(1.5, 5);
 
-        float dx = dist(gen);
-        float dy = dist(gen);
-        float dz = dist(gen);  // z-velocity
+        float dx = velocity(gen);
+        float dy = velocity(gen);
+        float dz = velocity(gen);  // z-velocity
 
         float x, y, z;
         if (explode) {
-            x = y = z = 0;  // Explode from center
+            x = 0;
+            y = 0;
+            z = -1.0;  // Explode from center
         } else {
-            x = randPosition(gen);
-            y = randPosition(gen);
-            z = randPosition(gen);  // z-coordinate
+            x = position(gen);
+            y = position(gen);
+            z = position_z(gen);  // z-coordinate
         }
 
         particles[i] = Particle(Vector(x, y, z), Vector(dx, dy, dz), mass(gen), particle_size);

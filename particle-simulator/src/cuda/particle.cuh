@@ -5,6 +5,14 @@
 
 #include "vector.cuh"
 
+#define PI 3.14159265f
+#define X_MAX 1.0
+#define X_MIN -1.0
+#define Y_MAX 1.0
+#define Y_MIN -1.0
+#define Z_MAX -2.0
+#define Z_MIN -4.0
+
 class Particle {
 public:
     Particle();
