@@ -68,7 +68,7 @@ void sweepAndPruneByX() {
     for (int i = 0; i < num_edges; i++) {
         p_edge_idx = edgesByX[i].getParentIdx();
         if (edgesByX[i].getIsLeft()) {
-            for (auto itr = touching.begin(); itr != touching.end(); ++itr) {
+            for (auto itr = touching.begin(); itr != touching.end(); ++itr) { // <----- Possible culprit for our runtime issues, confirm later.
                 // Particle& p_edge = particles[p_edge_idx];
                 // Particle& p_other = particles[*itr];
 
