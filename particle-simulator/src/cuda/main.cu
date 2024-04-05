@@ -9,7 +9,8 @@
 #include <stack>
 #include <unistd.h>
 #include <set>
-#include <map>
+#include <unordered_set>
+#include <chrono>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -42,45 +43,46 @@ void sortByX(Edge* edges) {
     // Simple insertion sort for the particles, sorting by their x-positions. This is to be used in sweep-and-prune.
     for (int i = 1; i < num_edges; i++) {
         for (int j = i - 1; j >= 0; j--) {
-            float j_x = edges[j].getX();
-            float j_next_x = edges[j + 1].getX();
+            Particle& p_j = particles[edges[j].getParentIdx()];
+            Particle& p_next_j = particles[edges[j + 1].getParentIdx()];
+
+            bool j_left = edges[j].getIsLeft();
+            float j_x = j_left ? p_j.getPosition().getX() - particle_size: p_j.getPosition().getX() + particle_size;
+
+            bool j_next_left = edges[j + 1].getIsLeft();
+            float j_next_x = j_next_left ? p_next_j.getPosition().getX() - particle_size: p_next_j.getPosition().getX() + particle_size;
+
             if (j_x < j_next_x) break;
             Edge tmp = edges[j];
             edges[j] = edges[j + 1];
             edges[j + 1] = tmp;
         }
     }
-    for (int i = 0; i < num_edges; i++) {
-        printf("(X:%0.02f Parent-Center: %0.02f)", edges[i].getX(), edges[i].getParent().getPosition().getX());
-    }
-    printf("\n");
 }
 
-void sweepAndPruneByX() {
+// void sweepAndPruneByX() {
+//     sortByX(edgesByX);
+//     std::unordered_set<int> touching; // indexes of particles touched by the line at this point
 
-    // std::map<Edge, Particle> overlapping;
-    // Edge* edges = edgesByX;
-    // for (int i = 0; i < num_edges; i++) {
-    //     for (int j = i - 1; j >= 0; j--) {
-    //         float j_x = edges[j].getX();
-    //         float j_next_x = edges[j + 1].getX();
-    //         if (j_x < j_next_x) break;
-    //         Edge tmp = edges[j];
-    //         edges[j] = edges[j+1];
-    //         edges[j+1] = tmp;
+//     int p_edge_idx;
+//     for (int i = 0; i < num_edges; i++) {
+//         p_edge_idx = edgesByX[i].getParentIdx();
+//         if (edgesByX[i].getIsLeft()) {
+//             for (auto itr = touching.begin(); itr != touching.end(); ++itr) {
+//                 // Particle& p_edge = particles[p_edge_idx];
+//                 // Particle& p_other = particles[*itr];
 
-    //         Edge edge1 = edges[j];
-    //         Edge edge2 = edges[j + 1];
+//                 if (particles[p_edge_idx].collidesWith(particles[*itr])) {
+//                     particles[p_edge_idx].resolveCollision(particles[*itr]); // currently inefficient because it tries to resolve for both pairs                        
+//                 }
+//             }
+//             touching.insert(p_edge_idx);
+//         } else {
+//             touching.erase(p_edge_idx);
+//         }
+//     }
+// }
 
-    //         if (edge1.getIsLeft() && !edge2.getIsLeft()) {
-    //             overlapping.insert(edge1, )
-    //         } else if (!edge1.getIsLeft() && edge2.getIsLeft()) {
-                
-    //         }
-    //     }
-    // }
-
-}
 
 // Check for collisions and resolve them
 __global__ void checkCollision(Particle* d_particles, int n_particles) {
@@ -246,10 +248,9 @@ int main(int argc, char** argv) {
         particles[i] = Particle(Vector(x, y, z), Vector(dx, dy, dz), mass(gen), particle_size);
     }
     for (int i = 0; i < num_particles; i++) {
-        edgesByX[i*2] = Edge(particles[i], false);
-        edgesByX[i*2 + 1] = Edge(particles[i], true);
+        edgesByX[i*2] = Edge(i, false);
+        edgesByX[i*2 + 1] = Edge(i, true);
     }
-    sortByX(edgesByX);
 
     // Init the device particles
     cudaMalloc((void**)&device_particles, num_particles * sizeof(Particle));

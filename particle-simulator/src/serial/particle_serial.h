@@ -5,6 +5,11 @@
 
 #include "vector_serial.h"
 
+#define X_MIN -1.0
+#define X_MAX 1.0
+#define Y_MIN -1.0
+#define Y_MAX 1.0
+
 class Particle {
     public:
         // Constructors

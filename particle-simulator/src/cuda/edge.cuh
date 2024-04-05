@@ -5,13 +5,13 @@
 class Edge {
 public:
     Edge();
-    Edge(const Particle& parent, bool isLeft);
+    Edge(int parent, bool isLeft);
     
-    __host__ const Particle& getParent() const;
+    __host__ int getParentIdx() const;
     __host__ float getX() const;
     __host__ bool getIsLeft() const;
 private:
-    Particle parent;
+    int parent;
     bool isLeft;
 };
 #endif

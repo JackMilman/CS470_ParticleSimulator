@@ -24,11 +24,6 @@
 
 #include <math.h>
 #define PI 3.14159265f
-#define X_MIN -1.0
-#define X_MAX 1.0
-#define Y_MIN -1.0
-#define Y_MAX 1.0
-
 
 int num_particles;
 float particle_size;
@@ -50,13 +45,11 @@ void sortByX(Edge* edges) {
             Particle& p_j = particles[edges[j].getParentIdx()];
             Particle& p_next_j = particles[edges[j + 1].getParentIdx()];
 
-            float j_x = p_j.getPosition().getX();
-            if (edges[j + 1].getIsLeft()) j_x -= p_next_j.getRadius();
-            else j_x += p_next_j.getRadius();
+            bool j_left = edges[j].getIsLeft();
+            float j_x = j_left ? p_j.getPosition().getX() - particle_size: p_j.getPosition().getX() + particle_size;
 
-            float j_next_x = p_next_j.getPosition().getX();
-            if (edges[j + 1].getIsLeft()) j_next_x -= p_next_j.getRadius();
-            else j_next_x += p_next_j.getRadius();
+            bool j_next_left = edges[j + 1].getIsLeft();
+            float j_next_x = j_next_left ? p_next_j.getPosition().getX() - particle_size: p_next_j.getPosition().getX() + particle_size;
 
             if (j_x < j_next_x) break;
             Edge tmp = edges[j];
@@ -68,16 +61,9 @@ void sortByX(Edge* edges) {
 
 
 void sweepAndPruneByX() {
-    auto start = std::chrono::high_resolution_clock::now();
     sortByX(edgesByX);
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
     std::unordered_set<int> touching; // indexes of particles touched by the line at this point
 
-    int overlaps = 0;
-    int collisions = 0;
-    long int checks = 0;
-    int num_left = 0;
     int p_edge_idx;
     for (int i = 0; i < num_edges; i++) {
         p_edge_idx = edgesByX[i].getParentIdx();
@@ -232,8 +218,8 @@ int main(int argc, char** argv) {
 
         float x, y;
         if (explode) {
-            x = 0;
-            y = 0;
+            x = (X_MAX + X_MIN) / 2;
+            y = (Y_MAX + Y_MIN) / 2;
         } else {
             x = pos_x(gen);
             y = pos_y(gen);
