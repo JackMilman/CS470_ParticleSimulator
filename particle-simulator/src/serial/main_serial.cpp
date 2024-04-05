@@ -8,6 +8,9 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <set>
+#include <unordered_set>
+#include <unordered_map>
+#include <chrono>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -21,6 +24,11 @@
 
 #include <math.h>
 #define PI 3.14159265f
+#define X_MIN -1.0
+#define X_MAX 1.0
+#define Y_MIN -1.0
+#define Y_MAX 1.0
+
 
 int num_particles;
 float particle_size;
@@ -28,6 +36,7 @@ Particle* particles;
 
 Edge* edgesByX;
 int num_edges;
+bool withSweep;
 
 int lastTime;
 
@@ -38,12 +47,12 @@ void sortByX(Edge* edges) {
     // Simple insertion sort for the particles, sorting by their x-positions. This is to be used in sweep-and-prune.
     for (int i = 1; i < num_edges; i++) {
         for (int j = i - 1; j >= 0; j--) {
-            Particle p_j = particles[edges[j].getParentIdx()];
-            Particle p_next_j = particles[edges[j + 1].getParentIdx()];
+            Particle& p_j = particles[edges[j].getParentIdx()];
+            Particle& p_next_j = particles[edges[j + 1].getParentIdx()];
 
             float j_x = p_j.getPosition().getX();
-            if (edges[j].getIsLeft()) j_x -= p_j.getRadius();
-            else j_x += p_j.getRadius();
+            if (edges[j + 1].getIsLeft()) j_x -= p_next_j.getRadius();
+            else j_x += p_next_j.getRadius();
 
             float j_next_x = p_next_j.getPosition().getX();
             if (edges[j + 1].getIsLeft()) j_next_x -= p_next_j.getRadius();
@@ -55,57 +64,37 @@ void sortByX(Edge* edges) {
             edges[j + 1] = tmp;
         }
     }
-    // for (int i = 0; i < num_edges; i++) {
-    //     printf("(X:%0.02f Center: %0.02f) ", particles[edges[i].getParentIdx()].getPosition().getX(), particles[edges[i].getParentIdx()].getPosition().getX());
-    // }
-    // printf("\n");
 }
 
-
-
-inline bool operator<(const Particle& lhs, const Particle& rhs)
-{
-  return lhs.getID() < rhs.getID();
-}
 
 void sweepAndPruneByX() {
+    auto start = std::chrono::high_resolution_clock::now();
     sortByX(edgesByX);
-    std::set<int> touching ; // indexes of particles touched by the line at this point
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+    std::unordered_set<int> touching; // indexes of particles touched by the line at this point
+
+    int overlaps = 0;
+    int collisions = 0;
+    long int checks = 0;
+    int num_left = 0;
+    int p_edge_idx;
     for (int i = 0; i < num_edges; i++) {
+        p_edge_idx = edgesByX[i].getParentIdx();
         if (edgesByX[i].getIsLeft()) {
-            for (auto itr : touching) {
-                // edgesByX[i].getParent().resolveCollision(itr);
-                Particle& p_edge = particles[edgesByX[i].getParentIdx()];
-                Particle& p_other = particles[itr];
-                p_edge.resolveCollision(p_other);
+            for (auto itr = touching.begin(); itr != touching.end(); ++itr) {
+                // Particle& p_edge = particles[p_edge_idx];
+                // Particle& p_other = particles[*itr];
+
+                if (particles[p_edge_idx].collidesWith(particles[*itr])) {
+                    particles[p_edge_idx].resolveCollision(particles[*itr]); // currently inefficient because it tries to resolve for both pairs                        
+                }
             }
-            touching.insert(i);
+            touching.insert(p_edge_idx);
         } else {
-            touching.erase(i);
+            touching.erase(p_edge_idx);
         }
     }
-
-    // std::map<Edge, Particle> overlapping;
-    // Edge* edges = edgesByX;
-    // for (int i = 0; i < num_edges; i++) {
-    //     for (int j = i - 1; j >= 0; j--) {
-    //         float j_x = edges[j].getX();
-    //         float j_next_x = edges[j + 1].getX();
-    //         if (j_x < j_next_x) break;
-    //         Edge tmp = edges[j];
-    //         edges[j] = edges[j+1];
-    //         edges[j+1] = tmp;
-
-    //         Edge edge1 = edges[j];
-    //         Edge edge2 = edges[j + 1];
-
-    //         if (edge1.getIsLeft() && !edge2.getIsLeft()) {
-    //             overlapping.insert(edge1, )
-    //         } else if (!edge1.getIsLeft() && edge2.getIsLeft()) {
-                
-    //         }
-    //     }
-    // }
 }
 
 // OpenGL rendering
@@ -126,22 +115,40 @@ void display() {
         glutSetWindowTitle(title);
     }
 
-
-    for (int i = 0; i < num_particles; i++) {
-        // Render the particle
-        particles[i].renderCircle();
-        // Update the particle's position, check for wall collision
-        particles[i].updatePosition(delta);
-        particles[i].wallBounce();
-
-        // // Check for collisions with other particles
-        // for (int j = i + 1; j < num_particles; j++) {
-        //     if (particles[i].collidesWith(particles[j])) {
-        //         particles[i].resolveCollision(particles[j]);
-        //     }
-        // }
+    int num_ops = 0;
+    // auto start = std::cherono::high_resolution_clock::now();
+    if (!withSweep) {
+        for (int i = 0; i < num_particles; i++) {
+            // Render the particle
+            particles[i].renderCircle();
+            // Update the particle's position, check for wall collision
+            particles[i].updatePosition(delta);
+            particles[i].wallBounce();
+            // // Check for collisions with other particles
+            for (int j = 0; j < num_particles; j++) {
+                if (particles[i].collidesWith(particles[j])) {
+                    particles[i].resolveCollision(particles[j]);
+                }
+                num_ops += 1;
+            }
+        }
+    } else {
+        for (int i = 0; i < num_particles; i++) {
+            // Render the particle
+            particles[i].renderCircle();
+            // Update the particle's position, check for wall collision
+            particles[i].updatePosition(delta);
+            particles[i].wallBounce();
+        }
         sweepAndPruneByX();
     }
+    // auto stop = std::chrono::high_resolution_clock::now();
+    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+    // if (!withSweep)
+    // std::cout << "Duration of brute force: " << duration.count() << " microseconds" << std::endl;
+    // else
+    // std::cout << "Duration of sweep-and-prune: " << duration.count() << " microseconds" << std::endl;
+    // printf("Num_ops: %d\n", num_ops);
 
     glutSwapBuffers();
 }
@@ -181,9 +188,10 @@ int main(int argc, char** argv) {
     particle_size = 0.1f;
     int opt;
     bool explode = false;
+    withSweep = false;
 
     // Command line options
-    while ((opt = getopt(argc, argv, "n:s:e")) != -1) {
+    while ((opt = getopt(argc, argv, "n:s:ew")) != -1) {
         switch (opt) {
             case 'n':
                 num_particles = strtol(optarg, NULL, 10);
@@ -194,6 +202,9 @@ int main(int argc, char** argv) {
             case 'e':
                 // Explode particles from center. Recommend running with a lot of particles with a low size
                 explode = true;
+                break;
+            case 'w':
+                withSweep = true;
                 break;
             default:
                 fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)]\n", argv[0]);
@@ -211,7 +222,8 @@ int main(int argc, char** argv) {
 
         // Randomize velocity, position, and mass
         std::uniform_real_distribution<float> dist(-2, 2);
-        std::uniform_real_distribution<float> rand(-0.95, 0.95);
+        std::uniform_real_distribution<float> pos_x(X_MIN + particle_size, X_MAX - particle_size);
+        std::uniform_real_distribution<float> pos_y(Y_MIN + particle_size, Y_MAX - particle_size);
         std::uniform_real_distribution<float> mass(1.5, 5);
 
         // make random particle velocity        
@@ -223,11 +235,11 @@ int main(int argc, char** argv) {
             x = 0;
             y = 0;
         } else {
-            x = rand(gen);
-            y = rand(gen);
+            x = pos_x(gen);
+            y = pos_y(gen);
         }
 
-        particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size, i);
+        particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size);
     }
 
     for (int i = 0; i < num_particles; i++) {
@@ -240,5 +252,5 @@ int main(int argc, char** argv) {
     lastTime = 0;
     glutMainLoop();
 
-    return 0;
+    return EXIT_SUCCESS;
 }

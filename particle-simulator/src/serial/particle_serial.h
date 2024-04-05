@@ -9,7 +9,7 @@ class Particle {
     public:
         // Constructors
         Particle();
-        Particle(Vector position, Vector velocity, float mass, float radius, int id);
+        Particle(Vector position, Vector velocity, float mass, float radius);
 
         // Getters and Setters
         const Vector& getPosition() const;
@@ -24,8 +24,6 @@ class Particle {
         float getRadius() const;
         void setRadius(float radius);
 
-        int getID() const;
-
         // Other methods
         void updatePosition(float dt);
         void renderCircle();
@@ -39,7 +37,6 @@ class Particle {
         Vector velocity;
         float mass;
         float radius;
-        int id;
 };
 
 
