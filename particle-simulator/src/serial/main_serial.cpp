@@ -23,6 +23,8 @@
 #include "edge.h"
 
 #include <math.h>
+#define DEFAULT_P_SIZE 0.05f
+#define DEFAULT_P_NUMBER 50
 #define PI 3.14159265f
 
 int num_particles;
@@ -183,8 +185,8 @@ int main(int argc, char** argv) {
 
     // Set defaults
     srand(time(NULL));
-    num_particles = 10;
-    particle_size = 0.1f;
+    num_particles = DEFAULT_P_NUMBER;
+    particle_size = DEFAULT_P_SIZE;
     int opt;
     bool explode = false;
     withSweep = false;

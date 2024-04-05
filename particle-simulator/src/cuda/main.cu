@@ -25,6 +25,9 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
+#define DEFAULT_P_SIZE 0.05f
+#define DEFAULT_P_NUMBER 50
+
 int num_particles;
 float particle_size;
 Particle* particles;
@@ -212,31 +215,14 @@ bool initGL(int *argc, char **argv)
         return false;
     }
 
-    // glEnable(GL_DEPTH_TEST);
-    // glDepthFunc(GL_LESS);
-
-    // glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-
-    // // Setup perspective projection
-    // glMatrixMode(GL_PROJECTION);
-    // glLoadIdentity();
-    // gluPerspective(60.0, 1.0, 0.1, 10.0);
-
-    // // Setup the camera
-    // glMatrixMode(GL_MODELVIEW);
-    // glLoadIdentity();
-    // gluLookAt(100.0, 0.0, 100.0,
-    //           0.0, 0.0, 0.0,
-    //           0.0, 1.0, 0.0);
-
     return true;
 }
 
 int main(int argc, char** argv) {
     // Set defaults
     srand(time(NULL));
-    num_particles = 50;
-    particle_size = 0.01f;
+    num_particles = DEFAULT_P_NUMBER;
+    particle_size = DEFAULT_P_SIZE;
     int opt;
     bool explode = false;
 
