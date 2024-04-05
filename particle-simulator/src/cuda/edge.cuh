@@ -8,7 +8,6 @@ public:
     Edge(int parent, bool isLeft);
     
     __host__ int getParentIdx() const;
-    __host__ float getX() const;
     __host__ bool getIsLeft() const;
 private:
     int parent;

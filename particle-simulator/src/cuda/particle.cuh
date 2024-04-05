@@ -5,13 +5,14 @@
 
 #include "vector.cuh"
 
+#define BALL_SEGMENTS 50
 #define PI 3.14159265f
 #define X_MAX 1.0
 #define X_MIN -1.0
 #define Y_MAX 1.0
 #define Y_MIN -1.0
-#define Z_MAX -2.0
-#define Z_MIN -6.0
+// #define Z_MAX -2.0
+// #define Z_MIN -6.0
 
 class Particle {
 public:
@@ -33,7 +34,7 @@ public:
 
     // Other methods
     __device__ void updatePosition(float dt);
-    __host__ void renderSphere();
+    __host__ void render();
     __device__ void wallBounce();
 
     __device__ bool collidesWith(const Particle& other) const;

@@ -5,7 +5,7 @@
 
 #include "particle.cuh"
 
-Particle::Particle() : position(Vector(0, 0, 0)), velocity(Vector(0, 0, 0)), mass(1), radius(1) {}
+Particle::Particle() : position(Vector(0, 0)), velocity(Vector(0, 0)), mass(1), radius(1) {}
 Particle::Particle(const Vector& position, const Vector& velocity, float mass, float radius ) : position(position), velocity(velocity), mass(mass), radius(radius) {}
 
 __host__ __device__ const Vector& Particle::getPosition() const {
@@ -44,29 +44,34 @@ __device__ void Particle::updatePosition(float deltaTime) {
     this->position += this->velocity * deltaTime;
 }
 
-__host__ void Particle::renderSphere() {
+__host__ void Particle::render() {
     GLfloat ballRadius = (GLfloat) this->radius;   // Radius of the bouncing ball
     GLfloat ballX = (GLfloat) this->position.getX();
     GLfloat ballY = (GLfloat) this->position.getY();
-    GLfloat ballZ = (GLfloat) this->position.getZ();
 
     glMatrixMode(GL_MODELVIEW);    // To operate on the model-view matrix
     glLoadIdentity();              // Reset model-view matrix
 
-    glTranslatef(ballX, ballY, ballZ);  // Translate to (xPos, yPos)
-
+    glTranslatef(ballX, ballY, 0.0f);  // Translate to (xPos, yPos)
     glColor3f(1, 0, 1);
-
-    glutWireSphere(ballRadius, 50, 50);
+    // Use triangular segments to form a circle
+    glBegin(GL_TRIANGLE_FAN);
+        glColor3f(1, 0, 1);
+        glVertex2f(0.0f, 0.0f);       // Center of circle
+        int numSegments = BALL_SEGMENTS;
+        GLfloat angle;
+        for (int i = 0; i <= numSegments; i++) { // Last vertex same as first vertex
+            angle = (i * 2.0f * PI) / numSegments;  // 360 deg for all segments
+            glVertex2f(cos(angle) * ballRadius, sin(angle) * ballRadius);
+        }
+    glEnd();
 }
 
 __device__ void Particle::wallBounce() {
     float x = this->position.getX();
     float y = this->position.getY();
-    float z = this->position.getZ();
     float delta_x = this->velocity.getX();
     float delta_y = this->velocity.getY();
-    float delta_z = this->velocity.getZ();
     float radius = this->getRadius();
     
     if (x + radius > X_MAX) {
@@ -84,14 +89,6 @@ __device__ void Particle::wallBounce() {
         this->position.setY(Y_MIN + radius);
         this->velocity.setY(-delta_y);
     }
-
-    if (z + radius > Z_MAX) {
-        this->position.setZ(Z_MAX - radius);
-        this->velocity.setZ(-delta_z);
-    } else if (z - radius < Z_MIN) {
-        this->position.setZ(Z_MIN + radius);
-        this->velocity.setZ(-delta_z);
-    }
 }
 
 __device__ bool Particle::collidesWith(const Particle& other) const {
@@ -101,8 +98,7 @@ __device__ bool Particle::collidesWith(const Particle& other) const {
     float p2Radius = other.getRadius();
     float dx = p1Pos.getX() - p2Pos.getX();
     float dy = p1Pos.getY() - p2Pos.getY();
-    float dz = p1Pos.getZ() - p2Pos.getZ();
-    float squaredDistance = dx * dx + dy * dy + dz * dz;
+    float squaredDistance = dx * dx + dy * dy;
 
     float radiiSum = p1Radius + p2Radius;
     float squaredSumOfRadii = radiiSum * radiiSum;
@@ -117,12 +113,11 @@ __device__ void Particle::resolveCollision(Particle& other) {
 
     float diff_x = pow(p1Pos.getX() - p2Pos.getX(), 2);
     float diff_y = pow(p1Pos.getY() - p2Pos.getY(), 2);
-    float diff_z = pow(p1Pos.getZ() - p2Pos.getZ(), 2);
-    float distance = sqrt(diff_x + diff_y + diff_z);
+    float distance = sqrt(diff_x + diff_y);
     
     Vector collision;
     if (distance == 0) {
-        collision = Vector(1, 0, 0);  // Avoid division by zero; arbitrary collision vector
+        collision = Vector(1, 0);  // Avoid division by zero; arbitrary collision vector
         distance = 1;
     } else {
         collision = (p1Pos - p2Pos) / distance;  // Normalized collision vector

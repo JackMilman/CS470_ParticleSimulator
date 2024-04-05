@@ -34,6 +34,7 @@ curandState* states;
 Edge* edgesByX;
 int num_edges;
 bool withSweep;
+// int* p_overlaps;
 std::unordered_set<int>* p_overlaps;
 std::unordered_set<int>* device_overlaps;
 
@@ -105,15 +106,15 @@ void sweepAndPruneByX() {
     // printf("Checked: %d\n", checked);
 }
 
-__global__ void checkSweep(Particle* d_particles, std::unordered_set<int>* d_overlaps, int n_particles) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
+// __global__ void checkSweep(Particle* d_particles, int* d_overlaps, int n_particles) {
+//     int i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    for (auto itr = d_overlaps[i].begin(); itr != d_overlaps[i].end(); ++itr) {
-        if (d_particles[i].collidesWith(d_particles[*itr])) {
-            d_particles[i].resolveCollision(d_particles[*itr]);
-        }
-    }
-}
+//     for (auto itr = d_overlaps[i].begin(); itr != d_overlaps[i].end(); ++itr) {
+//         if (d_particles[i].collidesWith(d_particles[*itr])) {
+//             d_particles[i].resolveCollision(d_particles[*itr]);
+//         }
+//     }
+// }
 
 // Check for collisions and resolve them
 __global__ void checkCollision(Particle* d_particles, int n_particles) {
@@ -142,7 +143,7 @@ void display() {
 
     // Render particles
     for (int i = 0; i < num_particles; i++) {
-        particles[i].renderSphere();
+        particles[i].render();
     }
 
     int blockSize = 256;
@@ -168,12 +169,12 @@ void display() {
     cudaDeviceSynchronize();
     if (withSweep) {
         sweepAndPruneByX();
-        cudaMemcpy(device_overlaps, p_overlaps, sizeof(p_overlaps), cudaMemcpyHostToDevice);
-        checkSweep<<<blockCount, blockSize>>>(device_particles, device_overlaps, num_particles);
-        cudaMemcpy(p_overlaps, device_overlaps, sizeof(device_overlaps), cudaMemcpyDeviceToHost);
-        for (int i = 0; i < num_particles; i++) {
-            p_overlaps[i].clear();
-        }
+        // cudaMemcpy(device_overlaps, p_overlaps, sizeof(p_overlaps), cudaMemcpyHostToDevice);
+        // checkSweep<<<blockCount, blockSize>>>(device_particles, device_overlaps, num_particles);
+        // cudaMemcpy(p_overlaps, device_overlaps, sizeof(device_overlaps), cudaMemcpyDeviceToHost);
+        // for (int i = 0; i < num_particles; i++) {
+        //     p_overlaps[i].clear();
+        // }
     } else {
         checkCollision<<<blockCount, blockSize>>>(device_particles, num_particles);
     }
@@ -211,22 +212,22 @@ bool initGL(int *argc, char **argv)
         return false;
     }
 
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+    // glEnable(GL_DEPTH_TEST);
+    // glDepthFunc(GL_LESS);
 
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    // glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
-    // Setup perspective projection
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(60.0, 1.0, 0.1, 10.0);
+    // // Setup perspective projection
+    // glMatrixMode(GL_PROJECTION);
+    // glLoadIdentity();
+    // gluPerspective(60.0, 1.0, 0.1, 10.0);
 
-    // Setup the camera
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    gluLookAt(100.0, 0.0, 100.0,
-              0.0, 0.0, 0.0,
-              0.0, 1.0, 0.0);
+    // // Setup the camera
+    // glMatrixMode(GL_MODELVIEW);
+    // glLoadIdentity();
+    // gluLookAt(100.0, 0.0, 100.0,
+    //           0.0, 0.0, 0.0,
+    //           0.0, 1.0, 0.0);
 
     return true;
 }
@@ -234,7 +235,7 @@ bool initGL(int *argc, char **argv)
 int main(int argc, char** argv) {
     // Set defaults
     srand(time(NULL));
-    num_particles = 10;
+    num_particles = 50;
     particle_size = 0.01f;
     int opt;
     bool explode = false;
@@ -277,26 +278,24 @@ int main(int argc, char** argv) {
         std::uniform_real_distribution<float> velocity(-2, 2);
         std::uniform_real_distribution<float> position_x(X_MIN + particle_size, X_MAX - particle_size);
         std::uniform_real_distribution<float> position_y(Y_MIN + particle_size, Y_MAX - particle_size);
-        std::uniform_real_distribution<float> position_z(Z_MIN + particle_size, Z_MAX - particle_size);
         std::uniform_real_distribution<float> mass(1.5, 5);
 
         float dx = velocity(gen);
         float dy = velocity(gen);
-        float dz = velocity(gen);  // z-velocity
 
-        float x, y, z;
+        float x, y;
         if (explode) {
             x = (X_MAX + X_MIN) / 2;
             y = (Y_MAX + Y_MIN) / 2;
-            z = (Z_MAX + Z_MIN) / 2;  // Explode from center
+            printf("X: %f Y: %f", x, y);
         } else {
             x = position_x(gen);
             y = position_y(gen);
-            z = position_z(gen);  // z-coordinate
         }
 
-        particles[i] = Particle(Vector(x, y, z), Vector(dx, dy, dz), mass(gen), particle_size);
+        particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size);
     }
+    printf("X MIN: %lf YMIN: %lf   XMAX: %lf YMAX: %lf\n", X_MIN, Y_MIN, X_MAX, Y_MAX);
     for (int i = 0; i < num_particles; i++) {
         edgesByX[i*2] = Edge(i, false);
         edgesByX[i*2 + 1] = Edge(i, true);
@@ -348,8 +347,8 @@ void buildOctree(Octree* octree, Particle* particles, int numParticles) {
 
     // Create the root node
     octree->numNodes = 1;
-    octree->nodes[0].min = make_float3(X_MIN, Y_MIN, Z_MIN);
-    octree->nodes[0].max = make_float3(X_MAX, Y_MAX, Z_MAX);
+    // octree->nodes[0].min = make_float3(X_MIN, Y_MIN, Z_MIN);
+    // octree->nodes[0].max = make_float3(X_MAX, Y_MAX, Z_MAX);
     octree->nodes[0].particleStart = 0;
     octree->nodes[0].particleEnd = numParticles;
 }
