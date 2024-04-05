@@ -15,9 +15,11 @@ Once the project has compiled, either `./app` or `./app_serial` will launch thei
 ```
 
 ## Parallelized
-The physics calculations and collision detection remain as of yet largely unchanged, with progress on the 
+The physics calculations and collision detection remain as of yet largely unchanged, with progress on the sweep-and-prune algorithm's parallelized form incomplete.
 
 ## Serialized
-The serialized code remains in 2-dimensions. We intend to update this so that it also displays 3-dimensional particles. A basic sweep-and-prune algorithm has been implemented with the intention of cutting down on spurious comparisons between particles that have no good likelihood of colliding. This algorithm performs a simple insertion sort on a list of "edges" for the axis-aligned bounding boxes of each particle, and then "sweeps" a line across the list of edges to perform finer-grained collision detection only for objects which are touched by the line at the same time.
 
-We have not yet been able to determine why, but even though this algorithm *should* perform better than the brute-force comparison algorithm, it appears to have worse performance with larger input sizes. Our preliminary guess is that the overhead cost of our implementation of the "sweep" phase of the algorithm may be unreasonably large.
+### Quadtrees
+
+### Sweep and Prune
+A basic sweep-and-prune algorithm has been implemented with the intention of cutting down on spurious comparisons between particles that have no good likelihood of colliding. This algorithm performs a simple insertion sort on a list of "edges" for the axis-aligned bounding boxes of each particle, and then "sweeps" a line across the list of edges to perform finer-grained collision detection only for objects which are touched by the line at the same time.
