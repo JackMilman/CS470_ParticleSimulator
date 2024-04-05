@@ -28,6 +28,7 @@
 int num_particles;
 float particle_size;
 Particle* particles;
+std::unordered_set<int> p_overlaps[2000];
 
 Edge* edgesByX;
 int num_edges;
@@ -60,20 +61,31 @@ void sortByX(Edge* edges) {
 }
 
 
+bool resolved(int p_edge, int other) {
+    bool resolved = p_overlaps[p_edge].count(other) == 1;
+    return resolved;
+}
+
 void sweepAndPruneByX() {
     sortByX(edgesByX);
     std::unordered_set<int> touching; // indexes of particles touched by the line at this point
 
     int p_edge_idx;
+    int checked = 0;
     for (int i = 0; i < num_edges; i++) {
         p_edge_idx = edgesByX[i].getParentIdx();
         if (edgesByX[i].getIsLeft()) {
-            for (auto itr = touching.begin(); itr != touching.end(); ++itr) { // <----- Possible culprit for our runtime issues, confirm later.
+            for (auto itr = touching.begin(); itr != touching.end(); ++itr) {
                 // Particle& p_edge = particles[p_edge_idx];
                 // Particle& p_other = particles[*itr];
-
-                if (particles[p_edge_idx].collidesWith(particles[*itr])) {
-                    particles[p_edge_idx].resolveCollision(particles[*itr]); // currently inefficient because it tries to resolve for both pairs                        
+                bool checked = resolved(p_edge_idx, *itr);
+                if (!checked) {
+                    if (particles[p_edge_idx].collidesWith(particles[*itr])) {
+                        particles[p_edge_idx].resolveCollision(particles[*itr]);                      
+                    }
+                    p_overlaps[p_edge_idx].insert(*itr);
+                    p_overlaps[*itr].insert(p_edge_idx);
+                    checked += 1;
                 }
             }
             touching.insert(p_edge_idx);
@@ -81,6 +93,12 @@ void sweepAndPruneByX() {
             touching.erase(p_edge_idx);
         }
     }
+    // Resets the overlapping pairs sets for the next iteration of the algorithm.
+    for (int i = 0; i < num_particles; i++) {
+        p_overlaps[i].clear();
+    }
+    // printf("Particles: %d\n", num_particles);
+    // printf("Checked: %d\n", checked);
 }
 
 // OpenGL rendering
