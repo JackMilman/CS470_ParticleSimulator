@@ -32,7 +32,7 @@ __device__ void Particle::setMass(float mass) {
     this->mass = mass;
 }
 
-__device__ float Particle::getRadius() const {
+__host__ __device__ float Particle::getRadius() const {
     return radius;
 }
 
@@ -57,7 +57,7 @@ __host__ void Particle::renderSphere() {
 
     glColor3f(1, 0, 1);
 
-    glutSolidSphere(ballRadius, 100, 100);
+    glutWireSphere(ballRadius, 50, 50);
 }
 
 __device__ void Particle::wallBounce() {

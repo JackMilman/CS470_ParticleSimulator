@@ -7,8 +7,8 @@
 
 #define PI 3.14159265f
 
-Particle::Particle() : position(Vector(0, 0)), velocity(Vector(0, 0)), mass(1), radius(1) {}
-Particle::Particle(Vector position, Vector velocity, float mass, float radius) : position(position), velocity(velocity), mass(mass), radius(radius) {}
+Particle::Particle() : position(Vector(0, 0)), velocity(Vector(0, 0)), mass(1), radius(1){}
+Particle::Particle(Vector position, Vector velocity, float mass, float radius) : position(position), velocity(velocity), mass(mass), radius(radius){}
 
 const Vector& Particle::getPosition() const {
     return position;

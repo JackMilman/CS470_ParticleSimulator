@@ -11,7 +11,7 @@
 #define Y_MAX 1.0
 #define Y_MIN -1.0
 #define Z_MAX -2.0
-#define Z_MIN -4.0
+#define Z_MIN -6.0
 
 class Particle {
 public:
@@ -28,7 +28,7 @@ public:
     __device__ float getMass() const;
     __device__ void setMass(float mass);
 
-    __device__ float getRadius() const;
+    __host__ __device__ float getRadius() const;
     __device__ void setRadius(float radius);
 
     // Other methods

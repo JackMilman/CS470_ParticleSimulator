@@ -7,6 +7,10 @@
 #include <random>
 #include <cstdlib>
 #include <unistd.h>
+#include <set>
+#include <unordered_set>
+#include <unordered_map>
+#include <chrono>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -15,6 +19,8 @@
 #include "particle_serial.cpp"
 #include "vector_serial.h"
 #include "vector_serial.cpp"
+#include "edge.cpp"
+#include "edge.h"
 
 #include <math.h>
 #define PI 3.14159265f
@@ -23,10 +29,59 @@ int num_particles;
 float particle_size;
 Particle* particles;
 
+Edge* edgesByX;
+int num_edges;
+bool withSweep;
+
 int lastTime;
 
 // GL functionality
 bool initGL(int *argc, char **argv);
+
+void sortByX(Edge* edges) {
+    // Simple insertion sort for the particles, sorting by their x-positions. This is to be used in sweep-and-prune.
+    for (int i = 1; i < num_edges; i++) {
+        for (int j = i - 1; j >= 0; j--) {
+            Particle& p_j = particles[edges[j].getParentIdx()];
+            Particle& p_next_j = particles[edges[j + 1].getParentIdx()];
+
+            bool j_left = edges[j].getIsLeft();
+            float j_x = j_left ? p_j.getPosition().getX() - particle_size: p_j.getPosition().getX() + particle_size;
+
+            bool j_next_left = edges[j + 1].getIsLeft();
+            float j_next_x = j_next_left ? p_next_j.getPosition().getX() - particle_size: p_next_j.getPosition().getX() + particle_size;
+
+            if (j_x < j_next_x) break;
+            Edge tmp = edges[j];
+            edges[j] = edges[j + 1];
+            edges[j + 1] = tmp;
+        }
+    }
+}
+
+
+void sweepAndPruneByX() {
+    sortByX(edgesByX);
+    std::unordered_set<int> touching; // indexes of particles touched by the line at this point
+
+    int p_edge_idx;
+    for (int i = 0; i < num_edges; i++) {
+        p_edge_idx = edgesByX[i].getParentIdx();
+        if (edgesByX[i].getIsLeft()) {
+            for (auto itr = touching.begin(); itr != touching.end(); ++itr) {
+                // Particle& p_edge = particles[p_edge_idx];
+                // Particle& p_other = particles[*itr];
+
+                if (particles[p_edge_idx].collidesWith(particles[*itr])) {
+                    particles[p_edge_idx].resolveCollision(particles[*itr]); // currently inefficient because it tries to resolve for both pairs                        
+                }
+            }
+            touching.insert(p_edge_idx);
+        } else {
+            touching.erase(p_edge_idx);
+        }
+    }
+}
 
 // OpenGL rendering
 void display() {
@@ -46,21 +101,40 @@ void display() {
         glutSetWindowTitle(title);
     }
 
-
-    for (int i = 0; i < num_particles; i++) {
-        // Render the particle
-        particles[i].renderCircle();
-        // Update the particle's position, check for wall collision
-        particles[i].updatePosition(delta);
-        particles[i].wallBounce();
-
-        // Check for collisions with other particles
-        for (int j = i + 1; j < num_particles; j++) {
-            if (particles[i].collidesWith(particles[j])) {
-                particles[i].resolveCollision(particles[j]);
+    int num_ops = 0;
+    // auto start = std::cherono::high_resolution_clock::now();
+    if (!withSweep) {
+        for (int i = 0; i < num_particles; i++) {
+            // Render the particle
+            particles[i].renderCircle();
+            // Update the particle's position, check for wall collision
+            particles[i].updatePosition(delta);
+            particles[i].wallBounce();
+            // // Check for collisions with other particles
+            for (int j = 0; j < num_particles; j++) {
+                if (particles[i].collidesWith(particles[j])) {
+                    particles[i].resolveCollision(particles[j]);
+                }
+                num_ops += 1;
             }
         }
+    } else {
+        for (int i = 0; i < num_particles; i++) {
+            // Render the particle
+            particles[i].renderCircle();
+            // Update the particle's position, check for wall collision
+            particles[i].updatePosition(delta);
+            particles[i].wallBounce();
+        }
+        sweepAndPruneByX();
     }
+    // auto stop = std::chrono::high_resolution_clock::now();
+    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+    // if (!withSweep)
+    // std::cout << "Duration of brute force: " << duration.count() << " microseconds" << std::endl;
+    // else
+    // std::cout << "Duration of sweep-and-prune: " << duration.count() << " microseconds" << std::endl;
+    // printf("Num_ops: %d\n", num_ops);
 
     glutSwapBuffers();
 }
@@ -100,9 +174,10 @@ int main(int argc, char** argv) {
     particle_size = 0.1f;
     int opt;
     bool explode = false;
+    withSweep = false;
 
     // Command line options
-    while ((opt = getopt(argc, argv, "n:s:e")) != -1) {
+    while ((opt = getopt(argc, argv, "n:s:ew")) != -1) {
         switch (opt) {
             case 'n':
                 num_particles = strtol(optarg, NULL, 10);
@@ -114,6 +189,9 @@ int main(int argc, char** argv) {
                 // Explode particles from center. Recommend running with a lot of particles with a low size
                 explode = true;
                 break;
+            case 'w':
+                withSweep = true;
+                break;
             default:
                 fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)]\n", argv[0]);
                 exit(EXIT_FAILURE);
@@ -121,6 +199,8 @@ int main(int argc, char** argv) {
     }
 
     particles = (Particle*) calloc(num_particles, sizeof(Particle));
+    num_edges = num_particles * 2;
+    edgesByX = (Edge*) calloc(num_edges, sizeof(Edge));
 
     for (int i = 0; i < num_particles; i++) {
         std::random_device rd;
@@ -128,7 +208,8 @@ int main(int argc, char** argv) {
 
         // Randomize velocity, position, and mass
         std::uniform_real_distribution<float> dist(-2, 2);
-        std::uniform_real_distribution<float> rand(-0.95, 0.95);
+        std::uniform_real_distribution<float> pos_x(X_MIN + particle_size, X_MAX - particle_size);
+        std::uniform_real_distribution<float> pos_y(Y_MIN + particle_size, Y_MAX - particle_size);
         std::uniform_real_distribution<float> mass(1.5, 5);
 
         // make random particle velocity        
@@ -137,19 +218,25 @@ int main(int argc, char** argv) {
 
         float x, y;
         if (explode) {
-            x = 0;
-            y = 0;
+            x = (X_MAX + X_MIN) / 2;
+            y = (Y_MAX + Y_MIN) / 2;
         } else {
-            x = rand(gen);
-            y = rand(gen);
+            x = pos_x(gen);
+            y = pos_y(gen);
         }
 
         particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size);
     }
 
+    for (int i = 0; i < num_particles; i++) {
+        edgesByX[i*2] = Edge(i, false);
+        edgesByX[i*2 + 1] = Edge(i, true);
+    }
+    sortByX(edgesByX);
+
     initGL(&argc, argv);
     lastTime = 0;
     glutMainLoop();
 
-    return 0;
+    return EXIT_SUCCESS;
 }
