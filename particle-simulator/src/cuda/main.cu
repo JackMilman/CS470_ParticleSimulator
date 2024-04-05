@@ -73,10 +73,11 @@ bool resolved(int p_edge, int other) {
     return resolved;
 }
 
-// Sweeps across the list of particle edges, sorted by their minimum x-values. If an edge is a left-edge, 
-// we look at all the other particles currently being "touched" by our imaginary line and check if they
-// have already been resolved. If they have not yet been resolved, we perform a finer-grained check to 
-// see if they collide, and resolve a collision if they do.
+/* Sweeps across the list of particle edges, sorted by their minimum x-values. 
+   If an edge is a left-edge, we look at all the other particles currently
+   being "touched" by our imaginary line and check if they have already been
+   resolved. If they have not yet been resolved, we perform a finer-grained
+   check to see if they collide, and resolve a collision if they do. */
 void sweepAndPruneByX() {
     sortByX(edgesByX);
     std::unordered_set<int> touching; // indexes of particles touched by the line at this point
@@ -102,9 +103,9 @@ void sweepAndPruneByX() {
         }
     }
     // // Resets the overlapping pairs sets for the next iteration of the algorithm.
-    // for (int i = 0; i < num_particles; i++) {
-    //     p_overlaps[i].clear();
-    // }
+    for (int i = 0; i < num_particles; i++) {
+        p_overlaps[i].clear();
+    }
     // printf("Particles: %d\n", num_particles);
     // printf("Checked: %d\n", checked);
 }
@@ -118,6 +119,7 @@ void sweepAndPruneByX() {
 //         }
 //     }
 // }
+
 
 // Check for collisions and resolve them
 __global__ void checkCollision(Particle* d_particles, int n_particles) {
@@ -184,10 +186,7 @@ void display() {
     
     // Retrieve particle data from device
     cudaMemcpy(particles, device_particles, num_particles * sizeof(Particle), cudaMemcpyDeviceToHost);
-
     cudaDeviceSynchronize();
-
-    // sweepAndPrune();
 
     glutSwapBuffers();
 }
@@ -273,7 +272,6 @@ int main(int argc, char** argv) {
         if (explode) {
             x = (X_MAX + X_MIN) / 2;
             y = (Y_MAX + Y_MIN) / 2;
-            printf("X: %f Y: %f", x, y);
         } else {
             x = position_x(gen);
             y = position_y(gen);
@@ -281,11 +279,11 @@ int main(int argc, char** argv) {
 
         particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size);
     }
-    printf("X MIN: %lf YMIN: %lf   XMAX: %lf YMAX: %lf\n", X_MIN, Y_MIN, X_MAX, Y_MAX);
     for (int i = 0; i < num_particles; i++) {
         edgesByX[i*2] = Edge(i, false);
         edgesByX[i*2 + 1] = Edge(i, true);
     }
+    sortByX(edgesByX);
 
     // Init the device particles
     cudaMalloc((void**)&device_particles, num_particles * sizeof(Particle));

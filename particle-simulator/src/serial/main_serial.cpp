@@ -68,10 +68,11 @@ bool resolved(int p_edge, int other) {
     return resolved;
 }
 
-// Sweeps across the list of particle edges, sorted by their minimum x-values. If an edge is a left-edge, 
-// we look at all the other particles currently being "touched" by our imaginary line and check if they
-// have already been resolved. If they have not yet been resolved, we perform a finer-grained check to 
-//see if they collide, and resolve a collision if they do.
+/* Sweeps across the list of particle edges, sorted by their minimum x-values. 
+   If an edge is a left-edge, we look at all the other particles currently
+   being "touched" by our imaginary line and check if they have already been
+   resolved. If they have not yet been resolved, we perform a finer-grained
+   check to see if they collide, and resolve a collision if they do. */
 void sweepAndPruneByX() {
     sortByX(edgesByX);
     std::unordered_set<int> touching; // indexes of particles touched by the line at this point
@@ -246,7 +247,7 @@ int main(int argc, char** argv) {
 
         particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size);
     }
-
+    // Initialize the list of edges, then sort them to prime the list for near-O(n) sorts.
     for (int i = 0; i < num_particles; i++) {
         edgesByX[i*2] = Edge(i, false);
         edgesByX[i*2 + 1] = Edge(i, true);
