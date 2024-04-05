@@ -8,10 +8,10 @@ This project can be run either in parallel or in serial. The code should first b
 cd particle_simulator
 make
 ```
-Once the project has compiled, either `./app` or `./app_serial` will launch their respective versions of the program, either in serial or parallel. A list of additional command-line arguments can be found through the use of -h.
+Once the project has compiled, either `./app` or `./app_serial` will launch their respective versions of the program, either in parallel or serial. A list of additional command-line arguments can be found through the use of -h.
 ```
 ./app -h
-    Usage: ./app_serial [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)]
+    Usage: ./app_serial [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-h help (OPTIONAL)]
 ```
 
 ## Parallelized
