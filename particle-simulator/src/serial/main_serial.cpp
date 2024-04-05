@@ -28,7 +28,7 @@
 int num_particles;
 float particle_size;
 Particle* particles;
-std::unordered_set<int> p_overlaps[2000];
+std::unordered_set<int>* p_overlaps;
 
 Edge* edgesByX;
 int num_edges;
@@ -219,6 +219,7 @@ int main(int argc, char** argv) {
     particles = (Particle*) calloc(num_particles, sizeof(Particle));
     num_edges = num_particles * 2;
     edgesByX = (Edge*) calloc(num_edges, sizeof(Edge));
+    p_overlaps = new std::unordered_set<int>[num_particles];
 
     for (int i = 0; i < num_particles; i++) {
         std::random_device rd;
