@@ -33,6 +33,9 @@ curandState* states;
 
 Edge* edgesByX;
 int num_edges;
+bool withSweep;
+std::unordered_set<int>* p_overlaps;
+std::unordered_set<int>* device_overlaps;
 
 int lastTime;
 
@@ -60,34 +63,63 @@ void sortByX(Edge* edges) {
     }
 }
 
-// void sweepAndPruneByX() {
-//     sortByX(edgesByX);
-//     std::unordered_set<int> touching; // indexes of particles touched by the line at this point
+// A simple check to determine if a particle pair has already been added to our overlap tracker.
+bool resolved(int p_edge, int other) {
+    bool resolved = p_overlaps[p_edge].count(other) == 1;
+    return resolved;
+}
 
-//     int p_edge_idx;
-//     for (int i = 0; i < num_edges; i++) {
-//         p_edge_idx = edgesByX[i].getParentIdx();
-//         if (edgesByX[i].getIsLeft()) {
-//             for (auto itr = touching.begin(); itr != touching.end(); ++itr) {
-//                 // Particle& p_edge = particles[p_edge_idx];
-//                 // Particle& p_other = particles[*itr];
+// Sweeps across the list of particle edges, sorted by their minimum x-values. If an edge is a left-edge, 
+// we look at all the other particles currently being "touched" by our imaginary line and check if they
+// have already been resolved. If they have not yet been resolved, we perform a finer-grained check to 
+// see if they collide, and resolve a collision if they do.
+void sweepAndPruneByX() {
+    sortByX(edgesByX);
+    std::unordered_set<int> touching; // indexes of particles touched by the line at this point
+    int p_edge_idx;
+    int checked = 0;
+    for (int i = 0; i < num_edges; i++) {
+        p_edge_idx = edgesByX[i].getParentIdx();
+        if (edgesByX[i].getIsLeft()) {
+            for (auto itr = touching.begin(); itr != touching.end(); ++itr) {
+                bool checked = resolved(p_edge_idx, *itr);
+                if (!checked) {
+                    // if (particles[p_edge_idx].collidesWith(particles[*itr])) {
+                    //     particles[p_edge_idx].resolveCollision(particles[*itr]);                      
+                    // }
+                    p_overlaps[p_edge_idx].insert(*itr);
+                    p_overlaps[*itr].insert(p_edge_idx);
+                    checked += 1;
+                }
+            }
+            touching.insert(p_edge_idx);
+        } else {
+            touching.erase(p_edge_idx);
+        }
+    }
+    // // Resets the overlapping pairs sets for the next iteration of the algorithm.
+    // for (int i = 0; i < num_particles; i++) {
+    //     p_overlaps[i].clear();
+    // }
+    // printf("Particles: %d\n", num_particles);
+    // printf("Checked: %d\n", checked);
+}
 
-//                 if (particles[p_edge_idx].collidesWith(particles[*itr])) {
-//                     particles[p_edge_idx].resolveCollision(particles[*itr]); // currently inefficient because it tries to resolve for both pairs                        
-//                 }
-//             }
-//             touching.insert(p_edge_idx);
-//         } else {
-//             touching.erase(p_edge_idx);
-//         }
-//     }
-// }
+__global__ void checkSweep(Particle* d_particles, std::unordered_set<int>* d_overlaps, int n_particles) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+    for (auto itr = d_overlaps[i].begin(); itr != d_overlaps[i].end(); ++itr) {
+        if (d_particles[i].collidesWith(d_particles[*itr])) {
+            d_particles[i].resolveCollision(d_particles[*itr]);
+        }
+    }
+}
 
 // Check for collisions and resolve them
 __global__ void checkCollision(Particle* d_particles, int n_particles) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    for (int j = i + 1; j < n_particles; j++) {
+    for (int j = 0; j < n_particles; j++) {
         if (d_particles[i].collidesWith(d_particles[j])) {
             d_particles[i].resolveCollision(d_particles[j]);
         }
@@ -95,7 +127,7 @@ __global__ void checkCollision(Particle* d_particles, int n_particles) {
 }
 
 // Update the position of the particles and check for wall collisions
-__global__ void updateParticles(Particle* d_particles, int n_particles, curandState* states, float deltaTime) {
+__global__ void updateParticles(Particle* d_particles, int n_particles, float deltaTime) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n_particles) {
         d_particles[i].updatePosition(deltaTime);
@@ -132,8 +164,20 @@ void display() {
 
     // Send particle data to device
     cudaMemcpy(device_particles, particles, num_particles * sizeof(Particle), cudaMemcpyHostToDevice);
-    updateParticles<<<blockCount, blockSize>>>(device_particles, num_particles, states, delta);
-    checkCollision<<<blockCount, blockSize>>>(device_particles, num_particles);
+    updateParticles<<<blockCount, blockSize>>>(device_particles, num_particles, delta);
+    cudaDeviceSynchronize();
+    if (withSweep) {
+        sweepAndPruneByX();
+        cudaMemcpy(device_overlaps, p_overlaps, sizeof(p_overlaps), cudaMemcpyHostToDevice);
+        checkSweep<<<blockCount, blockSize>>>(device_particles, device_overlaps, num_particles);
+        cudaMemcpy(p_overlaps, device_overlaps, sizeof(device_overlaps), cudaMemcpyDeviceToHost);
+        for (int i = 0; i < num_particles; i++) {
+            p_overlaps[i].clear();
+        }
+    } else {
+        checkCollision<<<blockCount, blockSize>>>(device_particles, num_particles);
+    }
+    
     // Retrieve particle data from device
     cudaMemcpy(particles, device_particles, num_particles * sizeof(Particle), cudaMemcpyDeviceToHost);
 
@@ -196,7 +240,7 @@ int main(int argc, char** argv) {
     bool explode = false;
 
     // Command line options
-    while ((opt = getopt(argc, argv, "n:s:e")) != -1) {
+    while ((opt = getopt(argc, argv, "n:s:ewh")) != -1) {
         switch (opt) {
             case 'n':
                 num_particles = strtol(optarg, NULL, 10);
@@ -208,6 +252,12 @@ int main(int argc, char** argv) {
                 // Explode particles from center. Recommend running with a lot of particles with a low size
                 explode = true;
                 break;
+            case 'w':
+                withSweep = true;
+                break;
+            case 'h':
+                fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)]\n", argv[0]);
+                exit(EXIT_FAILURE);
             default:
                 fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)]\n", argv[0]);
                 exit(EXIT_FAILURE);
@@ -217,6 +267,7 @@ int main(int argc, char** argv) {
     particles = (Particle*) calloc(num_particles, sizeof(Particle));
     num_edges = num_particles * 2;
     edgesByX = (Edge*) calloc(num_edges, sizeof(Edge));
+    p_overlaps = new std::unordered_set<int>[num_particles];
 
     for (int i = 0; i < num_particles; i++) {
         std::random_device rd;
@@ -253,7 +304,8 @@ int main(int argc, char** argv) {
 
     // Init the device particles
     cudaMalloc((void**)&device_particles, num_particles * sizeof(Particle));
-    cudaMalloc((void**)&states, num_particles * sizeof(curandState));
+    cudaMalloc((void**)&device_overlaps, num_particles * sizeof(p_overlaps));
+    // cudaMalloc((void**)&states, num_particles * sizeof(curandState));
 
     initGL(&argc, argv);
 
@@ -263,7 +315,8 @@ int main(int argc, char** argv) {
     // Clean up
     cudaDeviceSynchronize();
     cudaFree(device_particles);
-    cudaFree(states);
+    cudaFree(device_overlaps);
+    // cudaFree(states);
 
     return 0;
 }
