@@ -28,11 +28,11 @@
 int num_particles;
 float particle_size;
 Particle* particles;
-std::unordered_set<int>* p_overlaps;
 
 Edge* edgesByX;
 int num_edges;
 bool withSweep;
+std::unordered_set<int>* p_overlaps;
 
 int lastTime;
 
@@ -60,12 +60,16 @@ void sortByX(Edge* edges) {
     }
 }
 
-
+// A simple check to determine if a particle pair has already been added to our overlap tracker.
 bool resolved(int p_edge, int other) {
     bool resolved = p_overlaps[p_edge].count(other) == 1;
     return resolved;
 }
 
+// Sweeps across the list of particle edges, sorted by their minimum x-values. If an edge is a left-edge, 
+// we look at all the other particles currently being "touched" by our imaginary line and check if they
+// have already been resolved. If they have not yet been resolved, we perform a finer-grained check to 
+//see if they collide, and resolve a collision if they do.
 void sweepAndPruneByX() {
     sortByX(edgesByX);
     std::unordered_set<int> touching; // indexes of particles touched by the line at this point
@@ -76,8 +80,6 @@ void sweepAndPruneByX() {
         p_edge_idx = edgesByX[i].getParentIdx();
         if (edgesByX[i].getIsLeft()) {
             for (auto itr = touching.begin(); itr != touching.end(); ++itr) {
-                // Particle& p_edge = particles[p_edge_idx];
-                // Particle& p_other = particles[*itr];
                 bool checked = resolved(p_edge_idx, *itr);
                 if (!checked) {
                     if (particles[p_edge_idx].collidesWith(particles[*itr])) {
@@ -226,14 +228,14 @@ int main(int argc, char** argv) {
         std::mt19937 gen(rd());
 
         // Randomize velocity, position, and mass
-        std::uniform_real_distribution<float> dist(-2, 2);
+        std::uniform_real_distribution<float> velocity(VEL_MIN, VEL_MAX);
         std::uniform_real_distribution<float> pos_x(X_MIN + particle_size, X_MAX - particle_size);
         std::uniform_real_distribution<float> pos_y(Y_MIN + particle_size, Y_MAX - particle_size);
         std::uniform_real_distribution<float> mass(1.5, 5);
 
         // make random particle velocity        
-        float dx = dist(gen);
-        float dy = dist(gen);
+        float dx = velocity(gen);
+        float dy = velocity(gen);
 
         float x, y;
         if (explode) {

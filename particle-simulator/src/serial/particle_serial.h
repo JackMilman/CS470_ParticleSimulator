@@ -5,6 +5,8 @@
 
 #include "vector_serial.h"
 
+#define VEL_MIN -2.0
+#define VEL_MAX 2.0
 #define X_MIN -1.0
 #define X_MAX 1.0
 #define Y_MIN -1.0
