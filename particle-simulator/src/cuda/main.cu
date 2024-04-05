@@ -83,7 +83,6 @@ void sortByX(Edge* edges) {
 //     }
 // }
 
-
 // Check for collisions and resolve them
 __global__ void checkCollision(Particle* d_particles, int n_particles) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -268,3 +267,109 @@ int main(int argc, char** argv) {
 
     return 0;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////
+struct OctreeNode {
+    int children[8]; // Indices of the children nodes in the nodes array. -1 if no child.
+    float3 min; // Minimum point of the bounding box
+    float3 max; // Maximum point of the bounding box
+    int particleStart; // Index of the first particle in this node in the particles array
+    int particleEnd; // Index of the last particle in this node in the particles array
+};
+
+struct Octree {
+    OctreeNode* nodes; // Array of nodes
+    Particle* particles; // Array of particles
+    int numNodes; // Number of nodes in the tree
+    int numParticles; // Number of particles in the tree
+};
+
+void buildOctree(Octree* octree, Particle* particles, int numParticles) {
+    // Allocate memory for the nodes and particles arrays
+    octree->nodes = new OctreeNode[numParticles * 8]; // This is an overestimate, but it ensures we won't run out of space
+    octree->particles = new Particle[numParticles];
+
+    // Copy the particles into the Octree
+    memcpy(octree->particles, particles, numParticles * sizeof(Particle));
+    octree->numParticles = numParticles;
+
+    // Create the root node
+    octree->numNodes = 1;
+    octree->nodes[0].min = make_float3(X_MIN, Y_MIN, Z_MIN);
+    octree->nodes[0].max = make_float3(X_MAX, Y_MAX, Z_MAX);
+    octree->nodes[0].particleStart = 0;
+    octree->nodes[0].particleEnd = numParticles;
+}
+/////////////////////////////////////////////////////////////////////////////////////
+
+///////////////////////     OctTree Functions (Need more testing)       //////////////////////////////
+// __global__ void queryOctree(Particle* particles, OctreeNode* nodes, int* queue, bool* visited, int numParticles, int numNodes, float interactionRadius) {
+//     int index = threadIdx.x + blockIdx.x * blockDim.x;
+
+//     if (index < numParticles) {
+//         Particle* particle = &particles[index];
+
+//         // Initialize the queue with the root node
+//         if (index == 0) {
+//             queue[0] = 0; // Assume the root node is at index 0
+//         }
+
+//         __syncthreads();
+
+//         // BFS traversal of the Octree
+//         for (int i = 0; i < numNodes; i++) {
+//             if (i < numNodes && !visited[i]) {
+//                 OctreeNode* node = &nodes[queue[i]];
+
+//                 // Check particles at this octree level
+//                 for (int j = node->particleStart; j < node->particleEnd; j++) {
+//                     Particle* p = &particles[j];
+//                     if (distance(particle->position, p->position) <= interactionRadius) {
+//                         // Handle interaction between particle and p
+//                     }
+//                 }
+
+//                 // If this node has children, add them to the queue
+//                 for (int j = 0; j < 8; j++) {
+//                     int childIndex = node->children[j];
+//                     if (childIndex != -1 && intersectsSphere(node->min, node->max, particle->position, interactionRadius)) {
+//                         queue[numNodes++] = childIndex;
+//                     }
+//                 }
+
+//                 visited[i] = true;
+//             }
+
+//             __syncthreads();
+//         }
+//     }
+// }
+
+// __global__ void updateParticlePositions(Particle* particles, int numParticles, float dt) {
+//     int index = threadIdx.x + blockIdx.x * blockDim.x;
+
+//     if (index < numParticles) {
+//         Particle* particle = &particles[index];
+
+//         // Update the particle's position based on its velocity and the time step
+//         particle->position.x += particle->velocity.x * dt;
+//         particle->position.y += particle->velocity.y * dt;
+//         particle->position.z += particle->velocity.z * dt;
+//     }
+// }
+
+// void updateOctree(Particle* particles, OctreeNode* nodes, int numParticles, int numNodes) {
+//     // Rebuild the Octree on the CPU. This could be parallelized on the GPU, but it's a complex task that's beyond the scope of this example.
+//     // ...
+// }
+
+// void simulate(Particle* particles, OctreeNode* nodes, int numParticles, int numNodes, float dt) {
+//     // Update the particle positions
+//     int blockSize = 256;
+//     int numBlocks = (numParticles + blockSize - 1) / blockSize;
+//     updateParticlePositions<<<numBlocks, blockSize>>>(particles, numParticles, dt);
+//     cudaDeviceSynchronize();
+
+//     // Rebuild the Octree
+//     updateOctree(particles, nodes, numParticles, numNodes);
+// }
