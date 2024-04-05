@@ -46,7 +46,7 @@ void Particle::updatePosition(float deltaTime) {
     this->position += this->velocity * deltaTime;
 }
 
-void Particle::renderCircle() {
+void Particle::render() {
     GLfloat ballRadius = (GLfloat) this->radius;
     GLfloat ballX = (GLfloat) this->position.getX();
     GLfloat ballY = (GLfloat) this->position.getY();

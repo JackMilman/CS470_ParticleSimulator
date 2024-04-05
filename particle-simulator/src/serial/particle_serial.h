@@ -33,7 +33,7 @@ class Particle {
 
         // Other methods
         void updatePosition(float dt);
-        void renderCircle();
+        void render();
         void wallBounce();
 
         bool collidesWith(const Particle& other) const;

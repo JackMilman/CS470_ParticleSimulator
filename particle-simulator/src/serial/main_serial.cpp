@@ -126,7 +126,7 @@ void display() {
     if (!withSweep) {
         for (int i = 0; i < num_particles; i++) {
             // Render the particle
-            particles[i].renderCircle();
+            particles[i].render();
             // Update the particle's position, check for wall collision
             particles[i].updatePosition(delta);
             particles[i].wallBounce();
@@ -141,20 +141,13 @@ void display() {
     } else {
         for (int i = 0; i < num_particles; i++) {
             // Render the particle
-            particles[i].renderCircle();
+            particles[i].render();
             // Update the particle's position, check for wall collision
             particles[i].updatePosition(delta);
             particles[i].wallBounce();
         }
         sweepAndPruneByX();
     }
-    // auto stop = std::chrono::high_resolution_clock::now();
-    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-    // if (!withSweep)
-    // std::cout << "Duration of brute force: " << duration.count() << " microseconds" << std::endl;
-    // else
-    // std::cout << "Duration of sweep-and-prune: " << duration.count() << " microseconds" << std::endl;
-    // printf("Num_ops: %d\n", num_ops);
 
     glutSwapBuffers();
 }
@@ -197,7 +190,7 @@ int main(int argc, char** argv) {
     withSweep = false;
 
     // Command line options
-    while ((opt = getopt(argc, argv, "n:s:ew")) != -1) {
+    while ((opt = getopt(argc, argv, "n:s:ewh")) != -1) {
         switch (opt) {
             case 'n':
                 num_particles = strtol(optarg, NULL, 10);
@@ -212,6 +205,9 @@ int main(int argc, char** argv) {
             case 'w':
                 withSweep = true;
                 break;
+            case 'h':
+                fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
+                exit(EXIT_FAILURE);
             default:
                 fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)]\n", argv[0]);
                 exit(EXIT_FAILURE);
