@@ -17,6 +17,9 @@ Once the project has compiled, either `./app` or `./app_serial` will launch thei
 ## Parallelized
 The physics calculations and collision detection remain as of yet largely unchanged, with progress on the sweep-and-prune algorithm's parallelized form incomplete.
 
+### Sweep and Prune
+This algorithm seems parallelizable with a high degree of accuracy due to the fact that, once collated, we essentially just have a list of exclusively those particles with a higher likelihood of overlapping. Similar to how the basic Brute-Force algorithm resolves collisions on particles it is overlapping with, this seems to imply it would be a direct improvement over the brute-force algorithm, since the sweep and prune method would perform finer-grained collision checks against far fewer particles (and thus likely run faster).
+
 ## Serialized
 
 ### Quadtrees
