@@ -192,7 +192,9 @@ void display() {
     } else if (withTree) {
 
         // copy quadtree particles to array
-        memcpy(particles, quadtree.getParticles().data(), num_particles * sizeof(Particle));
+        std::vector<Particle> treeParticles = quadtree.getParticles();
+        std::copy(treeParticles.begin(), treeParticles.end(), particles);
+
         quadtree.clear();
 
         for (int i = 0; i < num_particles; i++) {
@@ -268,6 +270,7 @@ int main(int argc, char** argv) {
 
     // Set defaults
     srand(time(NULL));
+
     num_particles = DEFAULT_P_NUMBER;
     particle_size = DEFAULT_P_SIZE;
     int opt;
@@ -352,6 +355,8 @@ int main(int argc, char** argv) {
         // Insert the particle into the quadtree if it is enabled
         if (withTree) {
             quadtree.insert(particles[i]);
+                    printf("INSERT\n");
+
         }
     }
     // Initialize the list of edges, then sort them to prime the list for near-O(n) sorts.

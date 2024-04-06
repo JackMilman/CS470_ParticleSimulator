@@ -38,6 +38,10 @@ public:
 
     // insert a particle into the quadtree according to its position
     void insert(Particle p) {
+        if (children[0] == nullptr) {
+            return;
+        }
+
         if (level == maxLevel) {
             particles.push_back(p);
             return;
@@ -80,19 +84,6 @@ public:
         return particles;
     }
 
-    void update(float delta) {
-        for (Particle p : particles) {
-            // Render the particle
-
-            // particle.render();
-            // // Update the particle's position, check for wall collision
-            // particle.updatePosition(delta);
-            // particle.wallBounce();
-        }
-    }
-
-    
-
 private:
     void split() {
         float halfWidth = width / 2.0f;
@@ -109,4 +100,3 @@ private:
     std::vector<Particle> particles;
     Quadtree* children[4] = { nullptr, nullptr, nullptr, nullptr };
 };
-
