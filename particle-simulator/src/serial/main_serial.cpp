@@ -21,10 +21,12 @@
 #include "vector_serial.cpp"
 #include "edge.cpp"
 #include "edge.h"
+#include "quadtree.cpp"
 #include "spatial_hashing.h"
 #include "spatial_hashing.cpp"
 
 #include <math.h>
+#include <string.h>
 #define DEFAULT_P_SIZE 0.05f
 #define DEFAULT_P_NUMBER 50
 #define PI 3.14159265f
@@ -32,10 +34,12 @@
 int num_particles;
 float particle_size;
 Particle* particles;
+Quadtree quadtree;
 
 Edge* edgesByX;
 int num_edges;
 bool withSweep;
+bool withTree;
 SpatialHash spatialHash(DEFAULT_P_SIZE);
 bool withSpatialHash;
 std::unordered_set<int>* p_overlaps;
@@ -202,11 +206,34 @@ void display() {
                 num_ops += 1;
             }
         }
-        end = std::chrono::high_resolution_clock::now();
-        bruteForceOps += num_ops;
-        bruteForceTime += end - start;
-        if (frameCount % 100 == 0) {  // Print statistics every 100 frames
-            std::cout << "Brute Force Ops: " << bruteForceOps << ", Time: " << bruteForceTime.count() << "s\n";
+    } else if (withTree) {
+
+        // copy quadtree particles to array
+        memcpy(particles, quadtree.getParticles().data(), num_particles * sizeof(Particle));
+        quadtree.clear();
+
+        for (int i = 0; i < num_particles; i++) {
+            // Render the particle
+            particles[i].render();
+            // Update the particle's position, check for wall collision
+            particles[i].updatePosition(delta);
+            particles[i].wallBounce();
+            // Repopulate quadtree
+            quadtree.insert(particles[i]);
+        }
+
+        // Check for and resolve collisions
+        for (int i = 0; i < num_particles; i++) {
+            quadtree.checkCollisions(particles[i]);
+        }
+    }
+    else {
+        for (int i = 0; i < num_particles; i++) {
+            // Render the particle
+            particles[i].render();
+            // Update the particle's position, check for wall collision
+            particles[i].updatePosition(delta);
+            particles[i].wallBounce();
         }
     }
 
@@ -249,10 +276,11 @@ int main(int argc, char** argv) {
     int opt;
     bool explode = false;
     withSweep = false;
+    withTree = false;
     withSpatialHash = false;
 
     // Command line options
-    while ((opt = getopt(argc, argv, "n:s:ewhg")) != -1) {
+    while ((opt = getopt(argc, argv, "n:s:ewh:tg")) != -1) {
         switch (opt) {
             case 'n':
                 num_particles = strtol(optarg, NULL, 10);
@@ -266,6 +294,9 @@ int main(int argc, char** argv) {
                 break;
             case 'w':
                 withSweep = true;
+                break;
+            case 't':
+                withTree = true;
                 break;
             case 'g':
                 withSpatialHash = true;
@@ -283,6 +314,18 @@ int main(int argc, char** argv) {
     num_edges = num_particles * 2;
     edgesByX = (Edge*) calloc(num_edges, sizeof(Edge));
     p_overlaps = new std::unordered_set<int>[num_particles];
+
+    if (withTree) {
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 100.0f;
+        float height = 100.0f;
+        int level = 0;
+        int maxLevel = 4;
+
+        // initialize the quadtree
+        quadtree = Quadtree(X_MIN, Y_MIN, X_MAX - X_MIN, Y_MAX - Y_MIN, level, maxLevel);
+    }
 
     for (int i = 0; i < num_particles; i++) {
         std::random_device rd;
@@ -308,13 +351,19 @@ int main(int argc, char** argv) {
         }
 
         particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size);
+
+        // Insert the particle into the quadtree if it is enabled
+        if (withTree) {
+            quadtree.insert(particles[i]);
+        }
     }
     // Initialize the list of edges, then sort them to prime the list for near-O(n) sorts.
     for (int i = 0; i < num_particles; i++) {
         edgesByX[i*2] = Edge(i, false);
         edgesByX[i*2 + 1] = Edge(i, true);
     }
-    sortByX(edgesByX);
+    // TEST - verify if this sort is necessary
+    // sortByX(edgesByX);
 
     for (int i = 0; i < num_particles; i++) {
         spatialHash.insert(&particles[i]);
