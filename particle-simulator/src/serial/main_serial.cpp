@@ -138,7 +138,7 @@ void display() {
     if (frameCount % 20 == 0) {
         char title[80];
         sprintf(title, "Particle Simulator (%.2f fps) - %d particles", 1 / delta, num_particles);
-        // printf("%f\n", 1 / delta);
+        printf("%f\n", 1 / delta);
         glutSetWindowTitle(title);
     }
 
@@ -227,6 +227,11 @@ void display() {
             }
         }
         end = std::chrono::high_resolution_clock::now();
+        bruteForceOps += num_ops;
+        bruteForceTime += end - start;
+        if (frameCount % 100 == 0) {  // Print statistics every 100 frames
+            std::cout << "Spatial Hash Ops: " << bruteForceOps << ", Time: " << bruteForceTime.count() << "s\n";
+        }
     }
 
     glutSwapBuffers();
