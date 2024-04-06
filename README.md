@@ -23,6 +23,7 @@ This algorithm seems parallelizable with a high degree of accuracy due to the fa
 ## Serialized
 
 ### Quadtrees
+This algorithm utilizes vectors rather than a large array to resemble a quadtree structure. It promotes flexibility in order to avoid wasting data for allocating space for unevenly dispersed particles. Therefore, the four children of the quadtree will only allocate as much space as necessary to store the particles in their respective areas. The primary advantage of this data type is the improvement to detecting collisions; it only searches a quadrant for potential collisions per particle rather than iterating over every particle per particle.
 
 ### Sweep and Prune
 A basic sweep-and-prune algorithm has been implemented with the intention of cutting down on spurious comparisons between particles that have no good likelihood of colliding. This algorithm performs a simple insertion sort on a list of "edges" for the axis-aligned bounding boxes of each particle, and then "sweeps" a line across the list of edges to perform finer-grained collision detection only for objects which are touched by the line at the same time.
