@@ -189,23 +189,6 @@ void display() {
         if (frameCount % 100 == 0) {  // Print statistics every 100 frames
             std::cout << "Spatial Hash Ops: " << spatialHashOps << ", Time: " << spatialHashTime.count() << "s\n";
         }
-    } else {
-        int num_ops = 0;
-        start = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < num_particles; i++) {
-            // Render the particle
-            particles[i].render();
-            // Update the particle's position, check for wall collision
-            particles[i].updatePosition(delta);
-            particles[i].wallBounce();
-            // // Check for collisions with other particles
-            for (int j = 0; j < num_particles; j++) {
-                if (particles[i].collidesWith(particles[j])) {
-                    particles[i].resolveCollision(particles[j]);
-                }
-                num_ops += 1;
-            }
-        }
     } else if (withTree) {
 
         // copy quadtree particles to array
@@ -226,15 +209,24 @@ void display() {
         for (int i = 0; i < num_particles; i++) {
             quadtree.checkCollisions(particles[i]);
         }
-    }
-    else {
+    } else {
+        int num_ops = 0;
+        start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < num_particles; i++) {
             // Render the particle
             particles[i].render();
             // Update the particle's position, check for wall collision
             particles[i].updatePosition(delta);
             particles[i].wallBounce();
+            // // Check for collisions with other particles
+            for (int j = 0; j < num_particles; j++) {
+                if (particles[i].collidesWith(particles[j])) {
+                    particles[i].resolveCollision(particles[j]);
+                }
+                num_ops += 1;
+            }
         }
+        end = std::chrono::high_resolution_clock::now();
     }
 
     glutSwapBuffers();
