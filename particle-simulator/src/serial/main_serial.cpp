@@ -21,6 +21,8 @@
 #include "vector_serial.cpp"
 #include "edge.cpp"
 #include "edge.h"
+#include "spatial_hashing.h"
+#include "spatial_hashing.cpp"
 
 #include <math.h>
 #define DEFAULT_P_SIZE 0.05f
@@ -34,9 +36,20 @@ Particle* particles;
 Edge* edgesByX;
 int num_edges;
 bool withSweep;
+SpatialHash spatialHash(DEFAULT_P_SIZE);
+bool withSpatialHash;
 std::unordered_set<int>* p_overlaps;
 
 int lastTime;
+
+// Testing variables
+unsigned long long bruteForceOps = 0;
+unsigned long long sweepAndPruneOps = 0;
+unsigned long long spatialHashOps = 0;
+
+std::chrono::duration<double> bruteForceTime(0);
+std::chrono::duration<double> sweepAndPruneTime(0);
+std::chrono::duration<double> spatialHashTime(0);
 
 // GL functionality
 bool initGL(int *argc, char **argv);
@@ -73,7 +86,7 @@ bool resolved(int p_edge, int other) {
    being "touched" by our imaginary line and check if they have already been
    resolved. If they have not yet been resolved, we perform a finer-grained
    check to see if they collide, and resolve a collision if they do. */
-void sweepAndPruneByX() {
+void sweepAndPruneByX(int& num_ops) {
     sortByX(edgesByX);
     std::unordered_set<int> touching; // indexes of particles touched by the line at this point
 
@@ -83,6 +96,7 @@ void sweepAndPruneByX() {
         p_edge_idx = edgesByX[i].getParentIdx();
         if (edgesByX[i].getIsLeft()) {
             for (auto itr = touching.begin(); itr != touching.end(); ++itr) {
+                num_ops++;
                 bool checked = resolved(p_edge_idx, *itr);
                 if (!checked) {
                     if (particles[p_edge_idx].collidesWith(particles[*itr])) {
@@ -120,13 +134,60 @@ void display() {
     if (frameCount % 20 == 0) {
         char title[80];
         sprintf(title, "Particle Simulator (%.2f fps) - %d particles", 1 / delta, num_particles);
-        printf("%f\n", 1 / delta);
+        // printf("%f\n", 1 / delta);
         glutSetWindowTitle(title);
     }
 
-    int num_ops = 0;
-    // auto start = std::cherono::high_resolution_clock::now();
-    if (!withSweep) {
+    auto start = std::chrono::high_resolution_clock::now();
+    auto end = start;
+
+    if (withSweep) {
+        int num_ops = 0;
+        for (int i = 0; i < num_particles; i++) {
+            // Render the particle
+            particles[i].render();
+            // Update the particle's position, check for wall collision
+            particles[i].updatePosition(delta);
+            particles[i].wallBounce();
+        }
+        start = std::chrono::high_resolution_clock::now();
+        // Sweep and prune algorithm
+        sweepAndPruneByX(num_ops);
+        end = std::chrono::high_resolution_clock::now();
+        sweepAndPruneOps += num_ops;
+        sweepAndPruneTime += end - start;
+        if (frameCount % 100 == 0) {  // Print statistics every 100 frames
+            std::cout << "Sweep and Prune Ops: " << sweepAndPruneOps << ", Time: " << sweepAndPruneTime.count() << "s\n";
+        }
+    } else if (withSpatialHash) {
+        int num_ops = 0;
+        start = std::chrono::high_resolution_clock::now();
+        spatialHash.clear();
+        for (int i = 0; i < num_particles; i++) {
+            particles[i].render();
+            particles[i].updatePosition(delta);
+            particles[i].wallBounce();
+            spatialHash.insert(&particles[i]);
+        }
+        for (int i = 0; i < num_particles; i++) {
+            Particle& particle = particles[i];
+            auto neighbors = spatialHash.query(&particle);
+            for (Particle* neighbor : neighbors) {
+                num_ops++;
+                if (&particle != neighbor && particle.collidesWith(*neighbor)) {
+                    particle.resolveCollision(*neighbor);
+                }
+            }
+        }
+        end = std::chrono::high_resolution_clock::now();
+        spatialHashOps += num_ops;
+        spatialHashTime += end - start;
+        if (frameCount % 100 == 0) {  // Print statistics every 100 frames
+            std::cout << "Spatial Hash Ops: " << spatialHashOps << ", Time: " << spatialHashTime.count() << "s\n";
+        }
+    } else {
+        int num_ops = 0;
+        start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < num_particles; i++) {
             // Render the particle
             particles[i].render();
@@ -141,15 +202,12 @@ void display() {
                 num_ops += 1;
             }
         }
-    } else {
-        for (int i = 0; i < num_particles; i++) {
-            // Render the particle
-            particles[i].render();
-            // Update the particle's position, check for wall collision
-            particles[i].updatePosition(delta);
-            particles[i].wallBounce();
+        end = std::chrono::high_resolution_clock::now();
+        bruteForceOps += num_ops;
+        bruteForceTime += end - start;
+        if (frameCount % 100 == 0) {  // Print statistics every 100 frames
+            std::cout << "Brute Force Ops: " << bruteForceOps << ", Time: " << bruteForceTime.count() << "s\n";
         }
-        sweepAndPruneByX();
     }
 
     glutSwapBuffers();
@@ -191,9 +249,10 @@ int main(int argc, char** argv) {
     int opt;
     bool explode = false;
     withSweep = false;
+    withSpatialHash = false;
 
     // Command line options
-    while ((opt = getopt(argc, argv, "n:s:ewh")) != -1) {
+    while ((opt = getopt(argc, argv, "n:s:ewhg")) != -1) {
         switch (opt) {
             case 'n':
                 num_particles = strtol(optarg, NULL, 10);
@@ -207,6 +266,9 @@ int main(int argc, char** argv) {
                 break;
             case 'w':
                 withSweep = true;
+                break;
+            case 'g':
+                withSpatialHash = true;
                 break;
             case 'h':
                 fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
@@ -253,6 +315,10 @@ int main(int argc, char** argv) {
         edgesByX[i*2 + 1] = Edge(i, true);
     }
     sortByX(edgesByX);
+
+    for (int i = 0; i < num_particles; i++) {
+        spatialHash.insert(&particles[i]);
+    }
 
     initGL(&argc, argv);
     lastTime = 0;
