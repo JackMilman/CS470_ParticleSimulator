@@ -21,8 +21,10 @@
 #include "vector_serial.cpp"
 #include "edge.cpp"
 #include "edge.h"
+#include "quadtree.cpp"
 
 #include <math.h>
+#include <string.h>
 #define DEFAULT_P_SIZE 0.05f
 #define DEFAULT_P_NUMBER 50
 #define PI 3.14159265f
@@ -30,10 +32,12 @@
 int num_particles;
 float particle_size;
 Particle* particles;
+Quadtree quadtree;
 
 Edge* edgesByX;
 int num_edges;
 bool withSweep;
+bool withTree;
 std::unordered_set<int>* p_overlaps;
 
 int lastTime;
@@ -141,7 +145,28 @@ void display() {
                 num_ops += 1;
             }
         }
-    } else {
+    } else if (withTree) {
+
+        // copy quadtree particles to array
+        memcpy(particles, quadtree.getParticles().data(), num_particles * sizeof(Particle));
+        quadtree.clear();
+
+        for (int i = 0; i < num_particles; i++) {
+            // Render the particle
+            particles[i].render();
+            // Update the particle's position, check for wall collision
+            particles[i].updatePosition(delta);
+            particles[i].wallBounce();
+            // Repopulate quadtree
+            quadtree.insert(particles[i]);
+        }
+
+        // Check for and resolve collisions
+        for (int i = 0; i < num_particles; i++) {
+            quadtree.checkCollisions(particles[i]);
+        }
+    }
+    else {
         for (int i = 0; i < num_particles; i++) {
             // Render the particle
             particles[i].render();
@@ -191,9 +216,10 @@ int main(int argc, char** argv) {
     int opt;
     bool explode = false;
     withSweep = false;
+    withTree = false;
 
     // Command line options
-    while ((opt = getopt(argc, argv, "n:s:ewh")) != -1) {
+    while ((opt = getopt(argc, argv, "n:s:ewh:t")) != -1) {
         switch (opt) {
             case 'n':
                 num_particles = strtol(optarg, NULL, 10);
@@ -208,6 +234,9 @@ int main(int argc, char** argv) {
             case 'w':
                 withSweep = true;
                 break;
+            case 't':
+                withTree = true;
+                break;
             case 'h':
                 fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
                 exit(EXIT_FAILURE);
@@ -221,6 +250,18 @@ int main(int argc, char** argv) {
     num_edges = num_particles * 2;
     edgesByX = (Edge*) calloc(num_edges, sizeof(Edge));
     p_overlaps = new std::unordered_set<int>[num_particles];
+
+    if (withTree) {
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 100.0f;
+        float height = 100.0f;
+        int level = 0;
+        int maxLevel = 4;
+
+        // initialize the quadtree
+        quadtree = Quadtree(X_MIN, Y_MIN, X_MAX - X_MIN, Y_MAX - Y_MIN, level, maxLevel);
+    }
 
     for (int i = 0; i < num_particles; i++) {
         std::random_device rd;
@@ -246,13 +287,19 @@ int main(int argc, char** argv) {
         }
 
         particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size);
+
+        // Insert the particle into the quadtree if it is enabled
+        if (withTree) {
+            quadtree.insert(particles[i]);
+        }
     }
     // Initialize the list of edges, then sort them to prime the list for near-O(n) sorts.
     for (int i = 0; i < num_particles; i++) {
         edgesByX[i*2] = Edge(i, false);
         edgesByX[i*2 + 1] = Edge(i, true);
     }
-    sortByX(edgesByX);
+    // TEST - verify if this sort is necessary
+    // sortByX(edgesByX);
 
     initGL(&argc, argv);
     lastTime = 0;
