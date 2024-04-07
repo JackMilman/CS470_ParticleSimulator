@@ -11,6 +11,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <chrono>
+#include <iomanip>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -47,6 +48,8 @@ std::unordered_set<int>* p_overlaps;
 int lastTime;
 
 // Testing variables
+std::chrono::duration<double, std::milli> cumulativeTime(0);
+
 unsigned long long bruteForceOps = 0;
 unsigned long long sweepAndPruneOps = 0;
 unsigned long long spatialHashOps = 0;
@@ -135,10 +138,27 @@ void display() {
     lastTime = currentTime;
     frameCount++;
 
+    if (frameCount == 1000) {
+        double averageTime = cumulativeTime.count() / frameCount;
+        std::cout << "Average time per frame: " 
+              << std::fixed << std::setprecision(10) 
+              << averageTime << " ms" << std::endl;
+        if (withSweep) {
+            std::cout << "Sweep and Prune Ops: " << sweepAndPruneOps << "\n";
+        } else if (withSpatialHash) {
+            std::cout << "Spatial Hash Ops: " << spatialHashOps << "\n";
+        } else if (withTree) {
+
+        } else {
+            std::cout << "Brute Force Ops: " << bruteForceOps << "\n";
+        }
+        exit(0);
+    }
+
     if (frameCount % 20 == 0) {
         char title[80];
         sprintf(title, "Particle Simulator (%.2f fps) - %d particles", 1 / delta, num_particles);
-        printf("%f\n", 1 / delta);
+        // printf("%f\n", 1 / delta);
         glutSetWindowTitle(title);
     }
 
@@ -158,11 +178,8 @@ void display() {
         // Sweep and prune algorithm
         sweepAndPruneByX(num_ops);
         end = std::chrono::high_resolution_clock::now();
+        cumulativeTime += end - start;
         sweepAndPruneOps += num_ops;
-        sweepAndPruneTime += end - start;
-        if (frameCount % 100 == 0) {  // Print statistics every 100 frames
-            std::cout << "Sweep and Prune Ops: " << sweepAndPruneOps << ", Time: " << sweepAndPruneTime.count() << "s\n";
-        }
     } else if (withSpatialHash) {
         int num_ops = 0;
         start = std::chrono::high_resolution_clock::now();
@@ -184,11 +201,8 @@ void display() {
             }
         }
         end = std::chrono::high_resolution_clock::now();
+        cumulativeTime += end - start;
         spatialHashOps += num_ops;
-        spatialHashTime += end - start;
-        if (frameCount % 100 == 0) {  // Print statistics every 100 frames
-            std::cout << "Spatial Hash Ops: " << spatialHashOps << ", Time: " << spatialHashTime.count() << "s\n";
-        }
     } else if (withTree) {
 
         // copy quadtree particles to array
@@ -229,11 +243,8 @@ void display() {
             }
         }
         end = std::chrono::high_resolution_clock::now();
+        cumulativeTime += end - start;
         bruteForceOps += num_ops;
-        bruteForceTime += end - start;
-        if (frameCount % 100 == 0) {  // Print statistics every 100 frames
-            std::cout << "Spatial Hash Ops: " << bruteForceOps << ", Time: " << bruteForceTime.count() << "s\n";
-        }
     }
 
     glutSwapBuffers();
@@ -366,10 +377,6 @@ int main(int argc, char** argv) {
     }
     // TEST - verify if this sort is necessary
     // sortByX(edgesByX);
-
-    for (int i = 0; i < num_particles; i++) {
-        spatialHash.insert(&particles[i]);
-    }
 
     initGL(&argc, argv);
     lastTime = 0;
