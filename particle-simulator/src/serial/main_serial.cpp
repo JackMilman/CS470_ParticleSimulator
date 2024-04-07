@@ -35,7 +35,7 @@
 int num_particles;
 float particle_size;
 Particle* particles;
-Quadtree quadtree;
+Quadtree quadtree(-1.0, -1.0, 2.0, 2.0, 0, 4);
 
 Edge* edgesByX;
 int num_edges;
@@ -53,6 +53,7 @@ std::chrono::duration<double, std::milli> cumulativeTime(0);
 unsigned long long bruteForceOps = 0;
 unsigned long long sweepAndPruneOps = 0;
 unsigned long long spatialHashOps = 0;
+unsigned long long treeOps = 0;
 
 std::chrono::duration<double> bruteForceTime(0);
 std::chrono::duration<double> sweepAndPruneTime(0);
@@ -148,7 +149,7 @@ void display() {
         } else if (withSpatialHash) {
             std::cout << "Spatial Hash Ops: " << spatialHashOps << "\n";
         } else if (withTree) {
-
+            std::cout << "Quadtree Ops: " << treeOps << "\n";
         } else {
             std::cout << "Brute Force Ops: " << bruteForceOps << "\n";
         }
@@ -204,11 +205,8 @@ void display() {
         cumulativeTime += end - start;
         spatialHashOps += num_ops;
     } else if (withTree) {
-
-        // copy quadtree particles to array
-        std::vector<Particle> treeParticles = quadtree.getParticles();
-        std::copy(treeParticles.begin(), treeParticles.end(), particles);
-
+        int num_ops = 0;
+        start = std::chrono::high_resolution_clock::now();
         quadtree.clear();
 
         for (int i = 0; i < num_particles; i++) {
@@ -223,8 +221,30 @@ void display() {
 
         // Check for and resolve collisions
         for (int i = 0; i < num_particles; i++) {
-            quadtree.checkCollisions(particles[i]);
+            // quadtree.checkCollisions(particles[i]);
+            std::vector<Particle> neighbors = quadtree.getQuadrant(quadtree.findIndex(particles[i]));
+            for (Particle& neighbor : neighbors) {
+                if (neighbor.getPosition().getX() == particles[i].getPosition().getX() && 
+                    neighbor.getPosition().getY() == particles[i].getPosition().getY()) {
+                    continue;
+                } else {
+
+                    num_ops++;
+                    if (particles[i].collidesWith(neighbor)) {
+                        particles[i].resolveCollision(neighbor);
+                    }
+                }
+            }
         }
+
+        // copy quadtree particles to array
+        // std::vector<Particle> treeParticles = quadtree.getParticles();
+        // particles = (Particle*) realloc(particles, treeParticles.size() * sizeof(Particle));
+        // std::copy(treeParticles.begin(), treeParticles.end(), particles);
+        end = std::chrono::high_resolution_clock::now();
+        cumulativeTime += end - start;
+        treeOps += num_ops;
+
     } else {
         int num_ops = 0;
         start = std::chrono::high_resolution_clock::now();
@@ -326,18 +346,6 @@ int main(int argc, char** argv) {
     edgesByX = (Edge*) calloc(num_edges, sizeof(Edge));
     p_overlaps = new std::unordered_set<int>[num_particles];
 
-    if (withTree) {
-        float x = 0.0f;
-        float y = 0.0f;
-        float width = 100.0f;
-        float height = 100.0f;
-        int level = 0;
-        int maxLevel = 4;
-
-        // initialize the quadtree
-        quadtree = Quadtree(X_MIN, Y_MIN, X_MAX - X_MIN, Y_MAX - Y_MIN, level, maxLevel);
-    }
-
     for (int i = 0; i < num_particles; i++) {
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -366,8 +374,6 @@ int main(int argc, char** argv) {
         // Insert the particle into the quadtree if it is enabled
         if (withTree) {
             quadtree.insert(particles[i]);
-                    printf("INSERT\n");
-
         }
     }
     // Initialize the list of edges, then sort them to prime the list for near-O(n) sorts.
