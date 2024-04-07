@@ -41,8 +41,9 @@ Edge* edgesByX;
 int num_edges;
 bool withSweep;
 bool withTree;
-SpatialHash spatialHash(DEFAULT_P_SIZE);
 bool withSpatialHash;
+bool print_fps;
+SpatialHash spatialHash(DEFAULT_P_SIZE);
 std::unordered_set<int>* p_overlaps;
 
 int lastTime;
@@ -96,9 +97,7 @@ bool resolved(int p_edge, int other) {
 void sweepAndPruneByX(int& num_ops) {
     sortByX(edgesByX);
     std::unordered_set<int> touching; // indexes of particles touched by the line at this point
-
     int p_edge_idx;
-    int checked = 0;
     for (int i = 0; i < num_edges; i++) {
         p_edge_idx = edgesByX[i].getParentIdx();
         if (edgesByX[i].getIsLeft()) {
@@ -111,7 +110,6 @@ void sweepAndPruneByX(int& num_ops) {
                     }
                     p_overlaps[p_edge_idx].insert(*itr);
                     p_overlaps[*itr].insert(p_edge_idx);
-                    checked += 1;
                 }
             }
             touching.insert(p_edge_idx);
@@ -123,8 +121,6 @@ void sweepAndPruneByX(int& num_ops) {
     for (int i = 0; i < num_particles; i++) {
         p_overlaps[i].clear();
     }
-    // printf("Particles: %d\n", num_particles);
-    // printf("Checked: %d\n", checked);
 }
 
 // OpenGL rendering
@@ -158,7 +154,7 @@ void display() {
     if (frameCount % 20 == 0) {
         char title[80];
         sprintf(title, "Particle Simulator (%.2f fps) - %d particles", 1 / delta, num_particles);
-        // printf("%f\n", 1 / delta);
+        if (print_fps) printf("%f\n", 1 / delta);
         glutSetWindowTitle(title);
     }
 
@@ -289,9 +285,10 @@ int main(int argc, char** argv) {
     withSweep = false;
     withTree = false;
     withSpatialHash = false;
+    print_fps = false;
 
     // Command line options
-    while ((opt = getopt(argc, argv, "n:s:ewh:tg")) != -1) {
+    while ((opt = getopt(argc, argv, "n:s:ewhtgp")) != -1) {
         switch (opt) {
             case 'n':
                 num_particles = strtol(optarg, NULL, 10);
@@ -304,19 +301,33 @@ int main(int argc, char** argv) {
                 explode = true;
                 break;
             case 'w':
+                if (withTree || withSpatialHash) {
+                    fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
+                    exit(EXIT_FAILURE);
+                }
                 withSweep = true;
                 break;
             case 't':
+                if (withSweep || withSpatialHash) {
+                    fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-t with_tree (OPTIONAL)] [-g with_spatial_hash (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
+                    exit(EXIT_FAILURE);
+                }
                 withTree = true;
                 break;
             case 'g':
+                if (withSweep || withTree) {
+                    fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-t with_tree (OPTIONAL)] [-g with_spatial_hash (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
+                    exit(EXIT_FAILURE);
+                }
                 withSpatialHash = true;
                 break;
+            case 'p':
+                print_fps = true;
             case 'h':
-                fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
+                fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-t with_tree (OPTIONAL)] [-g with_spatial_hash (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
                 exit(EXIT_FAILURE);
             default:
-                fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)]\n", argv[0]);
+                fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-t with_tree (OPTIONAL)] [-g with_spatial_hash (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
@@ -363,12 +374,12 @@ int main(int argc, char** argv) {
 
         particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size);
 
-        // Insert the particle into the quadtree if it is enabled
-        if (withTree) {
-            quadtree.insert(particles[i]);
-                    printf("INSERT\n");
+        // // Insert the particle into the quadtree if it is enabled
+        // if (withTree) {
+        //     quadtree.insert(particles[i]);
+        //             printf("INSERT\n");
 
-        }
+        // }
     }
     // Initialize the list of edges, then sort them to prime the list for near-O(n) sorts.
     for (int i = 0; i < num_particles; i++) {
@@ -376,7 +387,15 @@ int main(int argc, char** argv) {
         edgesByX[i*2 + 1] = Edge(i, true);
     }
     // TEST - verify if this sort is necessary
-    // sortByX(edgesByX);
+    if (withSweep) {
+        sortByX(edgesByX);
+    } else if (withTree) {
+        for (int i = 0; i < num_particles; i++) {
+            quadtree.insert(particles[i]);
+            printf("INSERT\n");
+        }
+    }
+
 
     initGL(&argc, argv);
     lastTime = 0;
