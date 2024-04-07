@@ -11,6 +11,7 @@
 #include <set>
 #include <unordered_set>
 #include <chrono>
+#include <iomanip>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -42,6 +43,17 @@ std::unordered_set<int>* p_overlaps;
 std::unordered_set<int>* device_overlaps;
 
 int lastTime;
+
+// Testing variables
+std::chrono::duration<double, std::milli> cumulativeTime(0);
+
+unsigned long long bruteForceOps = 0;
+unsigned long long sweepAndPruneOps = 0;
+unsigned long long spatialHashOps = 0;
+
+std::chrono::duration<double> bruteForceTime(0);
+std::chrono::duration<double> sweepAndPruneTime(0);
+std::chrono::duration<double> spatialHashTime(0);
 
 // GL functionality
 bool initGL(int *argc, char **argv);
@@ -161,10 +173,24 @@ void display() {
     lastTime = currentTime;
     frameCount++;
 
+    if (frameCount == 1000) {
+        double averageTime = cumulativeTime.count() / frameCount;
+        std::cout << "Average time per frame: " 
+              << std::fixed << std::setprecision(10) 
+              << averageTime << " ms" << std::endl;
+        if (withSweep) {
+            std::cout << "Sweep and Prune Ops: " << sweepAndPruneOps << "\n";
+        }
+        exit(0);
+    }
+
+    auto start = std::chrono::high_resolution_clock::now();
+    auto end = start;
+
     if (frameCount % 20 == 0) {
         char title[80];
         sprintf(title, "Particle Simulator (%.2f fps) - %d particles", 1 / delta, num_particles);
-        printf("%f\n", 1 / delta);
+        // printf("%f\n", 1 / delta);
         glutSetWindowTitle(title);
     }
 
@@ -181,7 +207,11 @@ void display() {
         //     p_overlaps[i].clear();
         // }
     } else {
+        start = std::chrono::high_resolution_clock::now();
         checkCollision<<<blockCount, blockSize>>>(device_particles, num_particles);
+        cudaDeviceSynchronize();
+        end = std::chrono::high_resolution_clock::now();
+        cumulativeTime += end - start;
     }
     
     // Retrieve particle data from device
