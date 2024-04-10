@@ -23,6 +23,7 @@
 #include "edge.cpp"
 #include "edge.h"
 #include "quadtree.cpp"
+// #include "quadtree.h"
 #include "spatial_hashing.h"
 #include "spatial_hashing.cpp"
 
@@ -35,15 +36,15 @@
 int num_particles;
 float particle_size;
 Particle* particles;
-Quadtree quadtree(-1.0, -1.0, 2.0, 2.0, 0, 4);
+Rectangle rectangle = Rectangle((float) X_MIN, (float) Y_MIN, (float) X_MAX, (float) Y_MAX);
+QuadTree quadtree = QuadTree(0, rectangle);
 
 Edge* edgesByX;
 int num_edges;
 bool withSweep;
 bool withTree;
-bool withSpatialHash;
-bool print_fps;
 SpatialHash spatialHash(DEFAULT_P_SIZE);
+bool withSpatialHash;
 std::unordered_set<int>* p_overlaps;
 
 int lastTime;
@@ -98,7 +99,9 @@ bool resolved(int p_edge, int other) {
 void sweepAndPruneByX(int& num_ops) {
     sortByX(edgesByX);
     std::unordered_set<int> touching; // indexes of particles touched by the line at this point
+
     int p_edge_idx;
+    int checked = 0;
     for (int i = 0; i < num_edges; i++) {
         p_edge_idx = edgesByX[i].getParentIdx();
         if (edgesByX[i].getIsLeft()) {
@@ -111,6 +114,7 @@ void sweepAndPruneByX(int& num_ops) {
                     }
                     p_overlaps[p_edge_idx].insert(*itr);
                     p_overlaps[*itr].insert(p_edge_idx);
+                    checked += 1;
                 }
             }
             touching.insert(p_edge_idx);
@@ -122,6 +126,8 @@ void sweepAndPruneByX(int& num_ops) {
     for (int i = 0; i < num_particles; i++) {
         p_overlaps[i].clear();
     }
+    // printf("Particles: %d\n", num_particles);
+    // printf("Checked: %d\n", checked);
 }
 
 // OpenGL rendering
@@ -155,7 +161,7 @@ void display() {
     if (frameCount % 20 == 0) {
         char title[80];
         sprintf(title, "Particle Simulator (%.2f fps) - %d particles", 1 / delta, num_particles);
-        if (print_fps) printf("%f\n", 1 / delta);
+        // printf("%f\n", 1 / delta);
         glutSetWindowTitle(title);
     }
 
@@ -212,22 +218,23 @@ void display() {
             particles[i].updatePosition(delta);
             particles[i].wallBounce();
             // Repopulate quadtree
-            quadtree.insert(particles[i]);
+            quadtree.insert(&particles[i]);
         }
 
         // Check for and resolve collisions
         for (int i = 0; i < num_particles; i++) {
             // quadtree.checkCollisions(particles[i]);
-            std::vector<Particle> neighbors = quadtree.getQuadrant(quadtree.findIndex(particles[i]));
-            for (Particle& neighbor : neighbors) {
-                if (neighbor.getPosition().getX() == particles[i].getPosition().getX() && 
-                    neighbor.getPosition().getY() == particles[i].getPosition().getY()) {
+            std::vector<Particle*> neighbors = quadtree.getQuadrant(quadtree.getIndex(&particles[i]));
+            for (Particle* neighbor : neighbors) {
+                // skip checking collision with self
+                if (neighbor->getPosition().getX() == particles[i].getPosition().getX() && 
+                    neighbor->getPosition().getY() == particles[i].getPosition().getY()) {
                     continue;
                 } else {
-
                     num_ops++;
-                    if (particles[i].collidesWith(neighbor)) {
-                        particles[i].resolveCollision(neighbor);
+                    // neighbor[0] seems unsafe
+                    if (particles[i].collidesWith(neighbor[0])) {
+                        particles[i].resolveCollision(neighbor[0]);
                     }
                 }
             }
@@ -305,10 +312,9 @@ int main(int argc, char** argv) {
     withSweep = false;
     withTree = false;
     withSpatialHash = false;
-    print_fps = false;
 
     // Command line options
-    while ((opt = getopt(argc, argv, "n:s:ewhtgp")) != -1) {
+    while ((opt = getopt(argc, argv, "n:s:ewh:tg")) != -1) {
         switch (opt) {
             case 'n':
                 num_particles = strtol(optarg, NULL, 10);
@@ -321,33 +327,19 @@ int main(int argc, char** argv) {
                 explode = true;
                 break;
             case 'w':
-                if (withTree || withSpatialHash) {
-                    fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
-                    exit(EXIT_FAILURE);
-                }
                 withSweep = true;
                 break;
             case 't':
-                if (withSweep || withSpatialHash) {
-                    fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-t with_tree (OPTIONAL)] [-g with_spatial_hash (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
-                    exit(EXIT_FAILURE);
-                }
                 withTree = true;
                 break;
             case 'g':
-                if (withSweep || withTree) {
-                    fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-t with_tree (OPTIONAL)] [-g with_spatial_hash (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
-                    exit(EXIT_FAILURE);
-                }
                 withSpatialHash = true;
                 break;
-            case 'p':
-                print_fps = true;
             case 'h':
-                fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-t with_tree (OPTIONAL)] [-g with_spatial_hash (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
+                fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
                 exit(EXIT_FAILURE);
             default:
-                fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-t with_tree (OPTIONAL)] [-g with_spatial_hash (OPTIONAL)] [-h help (OPTIONAL)]\n", argv[0]);
+                fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)]\n", argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
@@ -382,12 +374,10 @@ int main(int argc, char** argv) {
 
         particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size);
 
-        // // Insert the particle into the quadtree if it is enabled
-        // if (withTree) {
-        //     quadtree.insert(particles[i]);
-        //             printf("INSERT\n");
-
-        // }
+        // Insert the particle into the quadtree if it is enabled
+        if (withTree) {
+            quadtree.insert(&particles[i]);
+        }
     }
     // Initialize the list of edges, then sort them to prime the list for near-O(n) sorts.
     for (int i = 0; i < num_particles; i++) {
@@ -395,15 +385,7 @@ int main(int argc, char** argv) {
         edgesByX[i*2 + 1] = Edge(i, true);
     }
     // TEST - verify if this sort is necessary
-    if (withSweep) {
-        sortByX(edgesByX);
-    } else if (withTree) {
-        for (int i = 0; i < num_particles; i++) {
-            quadtree.insert(particles[i]);
-            printf("INSERT\n");
-        }
-    }
-
+    // sortByX(edgesByX);
 
     initGL(&argc, argv);
     lastTime = 0;
