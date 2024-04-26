@@ -28,17 +28,25 @@
 
 #define DEFAULT_P_SIZE 0.05f
 #define DEFAULT_P_NUMBER 50
+#define PI 3.14159265f
+#define NUM_CMD "-n num_particles"
+#define SIZE_CMD "-s particle_size"
+#define EXPLODE_CMD "-e explode_from_center"
+#define SWEEP_CMD "-w sweep_and_prune"
+#define QUAD_CMD "-t quad_tree"
+#define SPATIAL_CMD "-g spatial_hash"
+#define HELP_CMD "-h help"
 
 int num_particles;
 float particle_size;
 Particle* particles;
 Particle* device_particles;
-curandState* states;
+
+enum modes {BruteForce, SweepAndPrune, Quad, Hash};
+int mode = BruteForce;
 
 Edge* edgesByX;
 int num_edges;
-bool withSweep;
-// int* p_overlaps;
 std::unordered_set<int>* p_overlaps;
 std::unordered_set<int>* device_overlaps;
 
@@ -46,11 +54,10 @@ int lastTime;
 
 // Testing variables
 std::chrono::duration<double, std::milli> cumulativeTime(0);
-
 unsigned long long bruteForceOps = 0;
 unsigned long long sweepAndPruneOps = 0;
 unsigned long long spatialHashOps = 0;
-
+unsigned long long treeOps = 0;
 std::chrono::duration<double> bruteForceTime(0);
 std::chrono::duration<double> sweepAndPruneTime(0);
 std::chrono::duration<double> spatialHashTime(0);
@@ -90,15 +97,16 @@ bool resolved(int p_edge, int other) {
    being "touched" by our imaginary line and check if they have already been
    resolved. If they have not yet been resolved, we perform a finer-grained
    check to see if they collide, and resolve a collision if they do. */
-void sweepAndPruneByX() {
+int sweepAndPruneByX() {
+    int num_ops = 0;
     sortByX(edgesByX);
     std::unordered_set<int> touching; // indexes of particles touched by the line at this point
     int p_edge_idx;
-    int checked = 0;
     for (int i = 0; i < num_edges; i++) {
         p_edge_idx = edgesByX[i].getParentIdx();
         if (edgesByX[i].getIsLeft()) {
             for (auto itr = touching.begin(); itr != touching.end(); ++itr) {
+                num_ops++;
                 bool checked = resolved(p_edge_idx, *itr);
                 if (!checked) {
                     // if (particles[p_edge_idx].collidesWith(particles[*itr])) {
@@ -106,7 +114,6 @@ void sweepAndPruneByX() {
                     // }
                     p_overlaps[p_edge_idx].insert(*itr);
                     p_overlaps[*itr].insert(p_edge_idx);
-                    checked += 1;
                 }
             }
             touching.insert(p_edge_idx);
@@ -114,31 +121,20 @@ void sweepAndPruneByX() {
             touching.erase(p_edge_idx);
         }
     }
-    // // Resets the overlapping pairs sets for the next iteration of the algorithm.
+    // Resets the overlapping pairs sets for the next iteration of the algorithm.
     for (int i = 0; i < num_particles; i++) {
         p_overlaps[i].clear();
     }
-    // printf("Particles: %d\n", num_particles);
-    // printf("Checked: %d\n", checked);
+    return num_ops;
 }
-
-// __global__ void checkSweep(Particle* d_particles, int* d_overlaps, int n_particles) {
-//     int i = blockIdx.x * blockDim.x + threadIdx.x;
-
-//     for (auto itr = d_overlaps[i].begin(); itr != d_overlaps[i].end(); ++itr) {
-//         if (d_particles[i].collidesWith(d_particles[*itr])) {
-//             d_particles[i].resolveCollision(d_particles[*itr]);
-//         }
-//     }
-// }
 
 
 // Check for collisions and resolve them
-__global__ void checkCollision(Particle* d_particles, int n_particles) {
+__global__ void checkBruteForce(Particle* d_particles, int n_particles) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    for (int j = 0; j < n_particles; j++) {
-        if (d_particles[i].collidesWith(d_particles[j])) {
+    for (int j = i + 1; j < n_particles; j++) {
+        if ((i != j) && d_particles[i].collidesWith(d_particles[j])) {
             d_particles[i].resolveCollision(d_particles[j]);
         }
     }
@@ -155,8 +151,14 @@ __global__ void updateParticles(Particle* d_particles, int n_particles, float de
 
 // Host function
 void display() {
-
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // FPS counter
+    static int frameCount = 0;
+    int currentTime = glutGet(GLUT_ELAPSED_TIME);
+    float delta = (currentTime - lastTime) / 1000.0f;
+    lastTime = currentTime;
+    frameCount++;
 
     // Render particles
     for (int i = 0; i < num_particles; i++) {
@@ -166,26 +168,29 @@ void display() {
     int blockSize = 256;
     int blockCount = (num_particles + blockSize - 1) / blockSize;
 
-    // FPS counter
-    static int frameCount = 0;
-    int currentTime = glutGet(GLUT_ELAPSED_TIME);
-    float delta = (currentTime - lastTime) / 1000.0f;
-    lastTime = currentTime;
-    frameCount++;
-
     if (frameCount == 1000) {
         double averageTime = cumulativeTime.count() / frameCount;
         std::cout << "Average time per frame: " 
               << std::fixed << std::setprecision(10) 
               << averageTime << " ms" << std::endl;
-        if (withSweep) {
-            std::cout << "Sweep and Prune Ops: " << sweepAndPruneOps << "\n";
+        switch (mode) {
+            case BruteForce:
+                std::cout << "Brute Force Ops: " << bruteForceOps << "\n";
+                break;
+            case SweepAndPrune:
+                std::cout << "Sweep and Prune Ops: " << sweepAndPruneOps << "\n";
+                break;
+            case Quad:
+                std::cout << "Quadtree Ops: " << treeOps << "\n";
+                break;
+            case Hash:
+                std::cout << "Spatial Hash Ops: " << spatialHashOps << "\n";
+                break;
+            default:
+                break;
         }
-        exit(0);
+        exit(EXIT_SUCCESS);
     }
-
-    auto start = std::chrono::high_resolution_clock::now();
-    auto end = start;
 
     if (frameCount % 20 == 0) {
         char title[80];
@@ -194,24 +199,47 @@ void display() {
         glutSetWindowTitle(title);
     }
 
+
     // Send particle data to device
     cudaMemcpy(device_particles, particles, num_particles * sizeof(Particle), cudaMemcpyHostToDevice);
     updateParticles<<<blockCount, blockSize>>>(device_particles, num_particles, delta);
+    auto start = std::chrono::high_resolution_clock::now();
+    auto end = start;
+    int num_ops = 0;
     cudaDeviceSynchronize();
-    if (withSweep) {
-        sweepAndPruneByX();
-        // cudaMemcpy(device_overlaps, p_overlaps, sizeof(p_overlaps), cudaMemcpyHostToDevice);
-        // checkSweep<<<blockCount, blockSize>>>(device_particles, device_overlaps, num_particles);
-        // cudaMemcpy(p_overlaps, device_overlaps, sizeof(device_overlaps), cudaMemcpyDeviceToHost);
-        // for (int i = 0; i < num_particles; i++) {
-        //     p_overlaps[i].clear();
-        // }
-    } else {
-        start = std::chrono::high_resolution_clock::now();
-        checkCollision<<<blockCount, blockSize>>>(device_particles, num_particles);
-        cudaDeviceSynchronize();
-        end = std::chrono::high_resolution_clock::now();
-        cumulativeTime += end - start;
+    switch (mode) {
+        case BruteForce:
+            start = std::chrono::high_resolution_clock::now();
+            checkBruteForce<<<blockCount, blockSize>>>(device_particles, num_particles);
+            cudaDeviceSynchronize();
+            end = std::chrono::high_resolution_clock::now();
+            cumulativeTime += end - start;
+            bruteForceOps += num_ops;
+            break;
+        case SweepAndPrune:
+            start = std::chrono::high_resolution_clock::now();
+            // Placeholder
+            cudaDeviceSynchronize();
+            end = std::chrono::high_resolution_clock::now();
+            cumulativeTime += end - start;
+            sweepAndPruneOps += num_ops;
+            break;
+        case Quad:
+            start = std::chrono::high_resolution_clock::now();
+            // Placeholder
+            cudaDeviceSynchronize();
+            end = std::chrono::high_resolution_clock::now();
+            cumulativeTime += end - start;
+            treeOps += num_ops;
+            break;
+        case Hash:
+            start = std::chrono::high_resolution_clock::now();
+            // Placeholder
+            cudaDeviceSynchronize();
+            end = std::chrono::high_resolution_clock::now();
+            cumulativeTime += end - start;
+            spatialHashOps += num_ops;
+            break;
     }
     
     // Retrieve particle data from device
@@ -247,16 +275,10 @@ bool initGL(int *argc, char **argv)
     return true;
 }
 
-int main(int argc, char** argv) {
-    // Set defaults
-    srand(time(NULL));
-    num_particles = DEFAULT_P_NUMBER;
-    particle_size = DEFAULT_P_SIZE;
+bool good_args(int argc, char** argv, bool* explode) {
+     // Command line options
     int opt;
-    bool explode = false;
-
-    // Command line options
-    while ((opt = getopt(argc, argv, "n:s:ewh")) != -1) {
+    while ((opt = getopt(argc, argv, "n:s:ewhtg")) != -1) {
         switch (opt) {
             case 'n':
                 num_particles = strtol(optarg, NULL, 10);
@@ -266,18 +288,45 @@ int main(int argc, char** argv) {
                 break;
             case 'e':
                 // Explode particles from center. Recommend running with a lot of particles with a low size
-                explode = true;
+                *explode = true;
                 break;
             case 'w':
-                withSweep = true;
+                if (mode != BruteForce)
+                    return false;
+                mode = SweepAndPrune;
+                break;
+            case 't':
+                if (mode != BruteForce)
+                    return false;
+                mode = Quad;
+                break;
+            case 'g':
+                if (mode != BruteForce)
+                    return false;
+                mode = Hash;
                 break;
             case 'h':
-                fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)]\n", argv[0]);
-                exit(EXIT_FAILURE);
+                return false;
+                break;
             default:
-                fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)]\n", argv[0]);
-                exit(EXIT_FAILURE);
+                return false;
+                break;
         }
+    }
+    return true;
+}
+
+int main(int argc, char** argv) {
+    // Set defaults
+    srand(time(NULL));
+    num_particles = DEFAULT_P_NUMBER;
+    particle_size = DEFAULT_P_SIZE;
+    bool explode = false;
+
+    if (!good_args(argc, argv, &explode)) {
+        fprintf(stderr, "Usage: %s [%s] [%s] [%s (OPTIONAL)] [%s | %s | %s (OPTIONAL)]\n", argv[0],
+            NUM_CMD, SIZE_CMD, EXPLODE_CMD, SWEEP_CMD, QUAD_CMD, SPATIAL_CMD);
+        exit(EXIT_FAILURE);
     }
 
     particles = (Particle*) calloc(num_particles, sizeof(Particle));
@@ -329,113 +378,6 @@ int main(int argc, char** argv) {
     cudaDeviceSynchronize();
     cudaFree(device_particles);
     cudaFree(device_overlaps);
-    // cudaFree(states);
 
     return 0;
 }
-
-///////////////////////////////////////////////////////////////////////////////////////////
-struct OctreeNode {
-    int children[8]; // Indices of the children nodes in the nodes array. -1 if no child.
-    float3 min; // Minimum point of the bounding box
-    float3 max; // Maximum point of the bounding box
-    int particleStart; // Index of the first particle in this node in the particles array
-    int particleEnd; // Index of the last particle in this node in the particles array
-};
-
-struct Octree {
-    OctreeNode* nodes; // Array of nodes
-    Particle* particles; // Array of particles
-    int numNodes; // Number of nodes in the tree
-    int numParticles; // Number of particles in the tree
-};
-
-void buildOctree(Octree* octree, Particle* particles, int numParticles) {
-    // Allocate memory for the nodes and particles arrays
-    octree->nodes = new OctreeNode[numParticles * 8]; // This is an overestimate, but it ensures we won't run out of space
-    octree->particles = new Particle[numParticles];
-
-    // Copy the particles into the Octree
-    memcpy(octree->particles, particles, numParticles * sizeof(Particle));
-    octree->numParticles = numParticles;
-
-    // Create the root node
-    octree->numNodes = 1;
-    // octree->nodes[0].min = make_float3(X_MIN, Y_MIN, Z_MIN);
-    // octree->nodes[0].max = make_float3(X_MAX, Y_MAX, Z_MAX);
-    octree->nodes[0].particleStart = 0;
-    octree->nodes[0].particleEnd = numParticles;
-}
-/////////////////////////////////////////////////////////////////////////////////////
-
-///////////////////////     OctTree Functions (Need more testing)       //////////////////////////////
-// __global__ void queryOctree(Particle* particles, OctreeNode* nodes, int* queue, bool* visited, int numParticles, int numNodes, float interactionRadius) {
-//     int index = threadIdx.x + blockIdx.x * blockDim.x;
-
-//     if (index < numParticles) {
-//         Particle* particle = &particles[index];
-
-//         // Initialize the queue with the root node
-//         if (index == 0) {
-//             queue[0] = 0; // Assume the root node is at index 0
-//         }
-
-//         __syncthreads();
-
-//         // BFS traversal of the Octree
-//         for (int i = 0; i < numNodes; i++) {
-//             if (i < numNodes && !visited[i]) {
-//                 OctreeNode* node = &nodes[queue[i]];
-
-//                 // Check particles at this octree level
-//                 for (int j = node->particleStart; j < node->particleEnd; j++) {
-//                     Particle* p = &particles[j];
-//                     if (distance(particle->position, p->position) <= interactionRadius) {
-//                         // Handle interaction between particle and p
-//                     }
-//                 }
-
-//                 // If this node has children, add them to the queue
-//                 for (int j = 0; j < 8; j++) {
-//                     int childIndex = node->children[j];
-//                     if (childIndex != -1 && intersectsSphere(node->min, node->max, particle->position, interactionRadius)) {
-//                         queue[numNodes++] = childIndex;
-//                     }
-//                 }
-
-//                 visited[i] = true;
-//             }
-
-//             __syncthreads();
-//         }
-//     }
-// }
-
-// __global__ void updateParticlePositions(Particle* particles, int numParticles, float dt) {
-//     int index = threadIdx.x + blockIdx.x * blockDim.x;
-
-//     if (index < numParticles) {
-//         Particle* particle = &particles[index];
-
-//         // Update the particle's position based on its velocity and the time step
-//         particle->position.x += particle->velocity.x * dt;
-//         particle->position.y += particle->velocity.y * dt;
-//         particle->position.z += particle->velocity.z * dt;
-//     }
-// }
-
-// void updateOctree(Particle* particles, OctreeNode* nodes, int numParticles, int numNodes) {
-//     // Rebuild the Octree on the CPU. This could be parallelized on the GPU, but it's a complex task that's beyond the scope of this example.
-//     // ...
-// }
-
-// void simulate(Particle* particles, OctreeNode* nodes, int numParticles, int numNodes, float dt) {
-//     // Update the particle positions
-//     int blockSize = 256;
-//     int numBlocks = (numParticles + blockSize - 1) / blockSize;
-//     updateParticlePositions<<<numBlocks, blockSize>>>(particles, numParticles, dt);
-//     cudaDeviceSynchronize();
-
-//     // Rebuild the Octree
-//     updateOctree(particles, nodes, numParticles, numNodes);
-// }
