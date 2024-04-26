@@ -7,6 +7,8 @@
 
 #define BALL_SEGMENTS 50
 #define PI 3.14159265f
+#define VEL_MIN -1.0
+#define VEL_MAX 1.0
 #define X_MAX 1.0
 #define X_MIN -1.0
 #define Y_MAX 1.0
