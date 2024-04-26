@@ -32,28 +32,26 @@
 #define DEFAULT_P_SIZE 0.05f
 #define DEFAULT_P_NUMBER 50
 #define PI 3.14159265f
-#define NUM_CMD "[-n num_particles]"
-#define SIZE_CMD "[-s particle_size]"
-#define EXPLODE_CMD "[-e explode_from_center (OPTIONAL)]"
-#define SWEEP_CMD "[-w sweep_and_prune (OPTIONAL)]"
-#define QUAD_CMD "[-t quad_tree (OPTIONAL)]"
-#define SPATIAL_CMD "[-g spatial_hash (OPTIONAL)]"
-#define HELP_CMD "[-h help (OPTIONAL)]"
+#define NUM_CMD "-n num_particles"
+#define SIZE_CMD "-s particle_size"
+#define EXPLODE_CMD "-e explode_from_center"
+#define SWEEP_CMD "-w sweep_and_prune"
+#define QUAD_CMD "-t quad_tree"
+#define SPATIAL_CMD "-g spatial_hash"
+#define HELP_CMD "-h help"
 
 int num_particles;
 float particle_size;
 Particle* particles;
+
+enum modes {BruteForce, SweepAndPrune, Quad, Hash};
+int mode = BruteForce;
+
 Rectangle rectangle = Rectangle((float) X_MIN, (float) Y_MIN, (float) X_MAX, (float) Y_MAX);
 QuadTree quadtree = QuadTree(0, rectangle);
-
 Edge* edgesByX;
 int num_edges;
-enum modes {BruteForce, SweepAndPrune, QuadTree, SpatialHash};
-int mode = BruteForce;
-// bool withSweep;
-// bool withTree;
 SpatialHash spatialHash(DEFAULT_P_SIZE);
-// bool withSpatialHash;
 std::unordered_set<int>* p_overlaps;
 
 int lastTime;
@@ -105,7 +103,8 @@ bool resolved(int p_edge, int other) {
    being "touched" by our imaginary line and check if they have already been
    resolved. If they have not yet been resolved, we perform a finer-grained
    check to see if they collide, and resolve a collision if they do. */
-void sweepAndPruneByX(int& num_ops) {
+int sweepAndPruneByX() {
+    int num_ops = 0;
     sortByX(edgesByX);
     std::unordered_set<int> touching; // indexes of particles touched by the line at this point
 
@@ -123,7 +122,6 @@ void sweepAndPruneByX(int& num_ops) {
                     }
                     p_overlaps[p_edge_idx].insert(*itr);
                     p_overlaps[*itr].insert(p_edge_idx);
-                    checked += 1;
                 }
             }
             touching.insert(p_edge_idx);
@@ -135,33 +133,59 @@ void sweepAndPruneByX(int& num_ops) {
     for (int i = 0; i < num_particles; i++) {
         p_overlaps[i].clear();
     }
-    // printf("Particles: %d\n", num_particles);
-    // printf("Checked: %d\n", checked);
+    return num_ops;
 }
 
-void stepParticle(&Particle p, float delta) {
-    p.render();
-    p.updatePosition(delta);
-    p.wallBounce();
+// Updates all particles into the next time-step, only performing wall-bounce checking.
+void stepParticles(float delta) {
+    for (int i = 0; i < num_particles; i++) {
+        particles[i].render();
+        particles[i].updatePosition(delta);
+        particles[i].wallBounce();
+    }
 }
 
-int bruteForceCheck(&Particle p, float delta) {
+// Compare one particle with all other particles to determine collisions
+int bruteForceCheck(Particle& p) {
     int num_ops = 0;
-    stepParticle(p, delta);
-    // p.render();
-    // p.updatePosition(delta);
-    // p.wallBounce();
     for (int j = 0; j < num_particles; j++) {
         if (p.collidesWith(particles[j])) {
             p.resolveCollision(particles[j]);
         }
-        num_ops += 1;
+        num_ops++;
     }
     return num_ops;
 }
 
-int sweepAndPruneCheck(&Particle p_this) {
+int quadTreeCheck(Particle& p) {
     int num_ops = 0;
+    // quadtree.checkCollisions(particles[i]);
+    std::vector<Particle*> neighbors = quadtree.getQuadrant(quadtree.getIndex(&p));
+    for (Particle* neighbor : neighbors) {
+        // skip checking collision with self
+        if (neighbor->getPosition().getX() == p.getPosition().getX() && 
+            neighbor->getPosition().getY() == p.getPosition().getY()) {
+            continue;
+        } else {
+            num_ops++;
+            // neighbor[0] seems unsafe
+            if (p.collidesWith(neighbor[0])) {
+                p.resolveCollision(neighbor[0]);
+            }
+        }
+    }
+    return num_ops;
+}
+
+int spatialHashCheck(Particle& p) {
+    int num_ops = 0;
+    auto neighbors = spatialHash.query(&p);
+    for (Particle* neighbor: neighbors) {
+        num_ops++;
+        if (&p != neighbor && p.collidesWith(*neighbor)) {
+            p.resolveCollision(*neighbor);
+        }
+    }
     return num_ops;
 }
 
@@ -188,23 +212,16 @@ void display() {
             case SweepAndPrune:
                 std::cout << "Sweep and Prune Ops: " << sweepAndPruneOps << "\n";
                 break;
-            case QuadTree:
-                std::cout << "Spatial Hash Ops: " << spatialHashOps << "\n";
-                break;
-            case SpatialHash:
+            case Quad:
                 std::cout << "Quadtree Ops: " << treeOps << "\n";
                 break;
+            case Hash:
+                std::cout << "Spatial Hash Ops: " << spatialHashOps << "\n";
+                break;
+            default:
+                break;
         }
-        // if (withSweep) {
-        //     std::cout << "Sweep and Prune Ops: " << sweepAndPruneOps << "\n";
-        // } else if (withSpatialHash) {
-        //     std::cout << "Spatial Hash Ops: " << spatialHashOps << "\n";
-        // } else if (withTree) {
-        //     std::cout << "Quadtree Ops: " << treeOps << "\n";
-        // } else {
-        //     std::cout << "Brute Force Ops: " << bruteForceOps << "\n";
-        // }
-        exit(0);
+        exit(EXIT_SUCCESS);
     }
 
     if (frameCount % 20 == 0) {
@@ -216,154 +233,53 @@ void display() {
 
     auto start = std::chrono::high_resolution_clock::now();
     auto end = start;
+    int num_ops = 0;
+    stepParticles(delta);
 
     switch (mode) {
         case BruteForce:
-            int num_ops = 0;
             start = std::chrono::high_resolution_clock::now();
             for (int i = 0; i < num_particles; i++) {
-                num_ops += bruteForceCheck(particles[i], delta);
-                // // Render the particle
-                // particles[i].render();
-                // // Update the particle's position, check for wall collision
-                // particles[i].updatePosition(delta);
-                // particles[i].wallBounce();
-                // // // Check for collisions with other particles
-                // for (int j = 0; j < num_particles; j++) {
-                //     if (particles[i].collidesWith(particles[j])) {
-                //         particles[i].resolveCollision(particles[j]);
-                //     }
-                //     num_ops += 1;
-                // }
+                num_ops += bruteForceCheck(particles[i]);
             }
             end = std::chrono::high_resolution_clock::now();
             cumulativeTime += end - start;
             bruteForceOps += num_ops;
             break;
         case SweepAndPrune:
-            int num_ops = 0;
-            for (int i = 0; i < num_particles; i++) {
-                // particles[i].render();
-                // particles[i].updatePosition(delta);
-                // particles[i].wallBounce();
-                stepParticle(particles[i], delta);
-            }
             start = std::chrono::high_resolution_clock::now();
-            sweepAndPruneByX(num_ops);
+            num_ops += sweepAndPruneByX();
             end = std::chrono::high_resolution_clock::now();
             cumulativeTime += end - start;
             sweepAndPruneOps += num_ops;
             break;
-        case QuadTree:
-            
+        case Quad:
+            start = std::chrono::high_resolution_clock::now();
+            quadtree.clear();
+            for (int i = 0; i < num_particles; i++) {
+                quadtree.insert(&particles[i]);
+            }
+            for (int i = 0; i < num_particles; i++) {
+                num_ops += quadTreeCheck(particles[i]);
+            }
+            end = std::chrono::high_resolution_clock::now();
+            cumulativeTime += end - start;
+            treeOps += num_ops;
             break;
-        case SpatialHash:
-            
+        case Hash:
+            start = std::chrono::high_resolution_clock::now();
+            spatialHash.clear();
+            for (int i = 0; i < num_particles; i++) {
+                spatialHash.insert(&particles[i]);
+            }
+            for (int i = 0; i < num_particles; i++) {
+                num_ops += spatialHashCheck(particles[i]);
+            }
+            end = std::chrono::high_resolution_clock::now();
+            cumulativeTime += end - start;
+            spatialHashOps += num_ops;
             break;
-        
     }
-    if (withSweep) {
-        int num_ops = 0;
-        for (int i = 0; i < num_particles; i++) {
-            // Render the particle
-            particles[i].render();
-            // Update the particle's position, check for wall collision
-            particles[i].updatePosition(delta);
-            particles[i].wallBounce();
-        }
-        start = std::chrono::high_resolution_clock::now();
-        // Sweep and prune algorithm
-        sweepAndPruneByX(num_ops);
-        end = std::chrono::high_resolution_clock::now();
-        cumulativeTime += end - start;
-        sweepAndPruneOps += num_ops;
-    } else if (withSpatialHash) {
-        int num_ops = 0;
-        start = std::chrono::high_resolution_clock::now();
-        spatialHash.clear();
-        for (int i = 0; i < num_particles; i++) {
-            particles[i].render();
-            particles[i].updatePosition(delta);
-            particles[i].wallBounce();
-            spatialHash.insert(&particles[i]);
-        }
-        for (int i = 0; i < num_particles; i++) {
-            Particle& particle = particles[i];
-            auto neighbors = spatialHash.query(&particle);
-            for (Particle* neighbor : neighbors) {
-                num_ops++;
-                if (&particle != neighbor && particle.collidesWith(*neighbor)) {
-                    particle.resolveCollision(*neighbor);
-                }
-            }
-        }
-        end = std::chrono::high_resolution_clock::now();
-        cumulativeTime += end - start;
-        spatialHashOps += num_ops;
-    } else if (withTree) {
-        int num_ops = 0;
-        start = std::chrono::high_resolution_clock::now();
-        quadtree.clear();
-
-        for (int i = 0; i < num_particles; i++) {
-            // Render the particle
-            particles[i].render();
-            // Update the particle's position, check for wall collision
-            particles[i].updatePosition(delta);
-            particles[i].wallBounce();
-            // Repopulate quadtree
-            quadtree.insert(&particles[i]);
-        }
-
-        // Check for and resolve collisions
-        for (int i = 0; i < num_particles; i++) {
-            // quadtree.checkCollisions(particles[i]);
-            std::vector<Particle*> neighbors = quadtree.getQuadrant(quadtree.getIndex(&particles[i]));
-            for (Particle* neighbor : neighbors) {
-                // skip checking collision with self
-                if (neighbor->getPosition().getX() == particles[i].getPosition().getX() && 
-                    neighbor->getPosition().getY() == particles[i].getPosition().getY()) {
-                    continue;
-                } else {
-                    num_ops++;
-                    // neighbor[0] seems unsafe
-                    if (particles[i].collidesWith(neighbor[0])) {
-                        particles[i].resolveCollision(neighbor[0]);
-                    }
-                }
-            }
-        }
-
-        // copy quadtree particles to array
-        // std::vector<Particle> treeParticles = quadtree.getParticles();
-        // particles = (Particle*) realloc(particles, treeParticles.size() * sizeof(Particle));
-        // std::copy(treeParticles.begin(), treeParticles.end(), particles);
-        end = std::chrono::high_resolution_clock::now();
-        cumulativeTime += end - start;
-        treeOps += num_ops;
-
-    } else {
-        int num_ops = 0;
-        start = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < num_particles; i++) {
-            // Render the particle
-            particles[i].render();
-            // Update the particle's position, check for wall collision
-            particles[i].updatePosition(delta);
-            particles[i].wallBounce();
-            // // Check for collisions with other particles
-            for (int j = 0; j < num_particles; j++) {
-                if (particles[i].collidesWith(particles[j])) {
-                    particles[i].resolveCollision(particles[j]);
-                }
-                num_ops += 1;
-            }
-        }
-        end = std::chrono::high_resolution_clock::now();
-        cumulativeTime += end - start;
-        bruteForceOps += num_ops;
-    }
-
     glutSwapBuffers();
 }
 
@@ -394,6 +310,47 @@ bool initGL(int *argc, char **argv)
     return true;
 }
 
+bool good_args(int argc, char** argv, bool* explode) {
+     // Command line options
+    int opt;
+    while ((opt = getopt(argc, argv, "n:s:ewhtg")) != -1) {
+        switch (opt) {
+            case 'n':
+                num_particles = strtol(optarg, NULL, 10);
+                break;
+            case 's':
+                particle_size = strtod(optarg, NULL);
+                break;
+            case 'e':
+                // Explode particles from center. Recommend running with a lot of particles with a low size
+                *explode = true;
+                break;
+            case 'w':
+                if (mode != BruteForce)
+                    return false;
+                mode = SweepAndPrune;
+                break;
+            case 't':
+                if (mode != BruteForce)
+                    return false;
+                mode = Quad;
+                break;
+            case 'g':
+                if (mode != BruteForce)
+                    return false;
+                mode = Hash;
+                break;
+            case 'h':
+                return false;
+                break;
+            default:
+                return false;
+                break;
+        }
+    }
+    return true;
+}
+
 int main(int argc, char** argv) {
 
     // Set defaults
@@ -406,8 +363,8 @@ int main(int argc, char** argv) {
     // withSweep = false;
     // withTree = false;
     // withSpatialHash = false;
-    if !(good_args(argc, argv, &explode)) {
-        fprintf(stderr, "Usage: %s %s %s %s %s %s %s", argv[0],
+    if (!good_args(argc, argv, &explode)) {
+        fprintf(stderr, "Usage: %s [%s] [%s] [%s (OPTIONAL)] [%s | %s | %s (OPTIONAL)]\n", argv[0],
             NUM_CMD, SIZE_CMD, EXPLODE_CMD, SWEEP_CMD, QUAD_CMD, SPATIAL_CMD);
         exit(EXIT_FAILURE);
     }
@@ -442,11 +399,6 @@ int main(int argc, char** argv) {
         }
 
         particles[i] = Particle(Vector(x, y), Vector(dx, dy), mass(gen), particle_size);
-
-        // Insert the particle into the quadtree if it is enabled
-        // if (withTree) {
-        //     quadtree.insert(&particles[i]);
-        // }
     }
     switch (mode) {
         case SweepAndPrune:
@@ -457,7 +409,7 @@ int main(int argc, char** argv) {
             }
             sortByX(edgesByX);
             break;
-        case QuadTree:
+        case Quad:
             for (int i = 0; i < num_particles; i++) {
                 quadtree.insert(&particles[i]);
             }
@@ -469,48 +421,4 @@ int main(int argc, char** argv) {
     glutMainLoop();
 
     return EXIT_SUCCESS;
-}
-
-bool good_args(int argc, char** argv, bool* explode) {
-     // Command line options
-    int opt;
-    while ((opt = getopt(argc, argv, "n:s:ewh:tg")) != -1) {
-        switch (opt) {
-            case 'n':
-                num_particles = strtol(optarg, NULL, 10);
-                break;
-            case 's':
-                particle_size = strtod(optarg, NULL);
-                break;
-            case 'e':
-                // Explode particles from center. Recommend running with a lot of particles with a low size
-                *explode = true;
-                break;
-            case 'w':
-                if (mode != BruteForce) {
-                    return false;
-                }
-                mode = SweepAndPrune;
-                break;
-            case 't':
-                if (mode != BruteForce) {
-                    return false;
-                }
-                mode = QuadTree;
-                break;
-            case 'g':
-                if (mode != BruteForce) {
-                    return false;
-                }
-                mode = SpatialHash;
-                break;
-            case 'h':
-                return false;
-                
-            default:
-                return false;
-                // fprintf(stderr, "Usage: %s [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)]\n", argv[0]);
-                // exit(EXIT_FAILURE);
-        }
-    }
 }
