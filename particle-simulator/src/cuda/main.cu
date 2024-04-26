@@ -22,6 +22,8 @@
 #include "vector.cu"
 #include "edge.cu"
 #include "edge.cuh"
+#include "particle_pair.cu"
+#include "particle_pair.cuh"
 
 #include <curand.h>
 #include <curand_kernel.h>
@@ -47,8 +49,11 @@ int mode = BruteForce;
 
 Edge* edgesByX;
 int num_edges;
+int max_pairs;
 std::unordered_set<int>* p_overlaps;
 std::unordered_set<int>* device_overlaps;
+ParticlePair* pairs;
+ParticlePair* device_pairs;
 
 int lastTime;
 
@@ -98,34 +103,27 @@ bool resolved(int p_edge, int other) {
    resolved. If they have not yet been resolved, we perform a finer-grained
    check to see if they collide, and resolve a collision if they do. */
 int sweepAndPruneByX() {
-    int num_ops = 0;
     sortByX(edgesByX);
-    std::unordered_set<int> touching; // indexes of particles touched by the line at this point
+    // indexes of particles touched by the line at this point
+    std::unordered_set<int> touching;
     int p_edge_idx;
+    // pair_idx represents the number of overlaps (minus one) that we have found in
+    // this iteration. It will be used to determine how far into the pairs array to
+    // look, when fine-checking for collisions
+    int pair_idx = 0;
     for (int i = 0; i < num_edges; i++) {
         p_edge_idx = edgesByX[i].getParentIdx();
         if (edgesByX[i].getIsLeft()) {
             for (auto itr = touching.begin(); itr != touching.end(); ++itr) {
-                num_ops++;
-                bool checked = resolved(p_edge_idx, *itr);
-                if (!checked) {
-                    // if (particles[p_edge_idx].collidesWith(particles[*itr])) {
-                    //     particles[p_edge_idx].resolveCollision(particles[*itr]);                      
-                    // }
-                    p_overlaps[p_edge_idx].insert(*itr);
-                    p_overlaps[*itr].insert(p_edge_idx);
-                }
+                    pairs[pair_idx] = ParticlePair(p_edge_idx, *itr);
+                    pair_idx++;
             }
             touching.insert(p_edge_idx);
         } else {
             touching.erase(p_edge_idx);
         }
     }
-    // Resets the overlapping pairs sets for the next iteration of the algorithm.
-    for (int i = 0; i < num_particles; i++) {
-        p_overlaps[i].clear();
-    }
-    return num_ops;
+    return pair_idx - 1;
 }
 
 
@@ -136,6 +134,18 @@ __global__ void checkBruteForce(Particle* d_particles, int n_particles) {
     for (int j = i + 1; j < n_particles; j++) {
         if ((i != j) && d_particles[i].collidesWith(d_particles[j])) {
             d_particles[i].resolveCollision(d_particles[j]);
+        }
+    }
+}
+
+__global__ void checkSweep(Particle* d_particles, ParticlePair* d_pairs, int n_pairs) {
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    int stride = blockDim.x * gridDim.x;
+    for (int i = index; i < n_pairs; i+=stride) {
+        Particle& a = d_particles[d_pairs[i].getA()];
+        Particle& b = d_particles[d_pairs[i].getB()];
+        if (a.collidesWith(b)) {
+            a.resolveCollision(b);
         }
     }
 }
@@ -199,52 +209,51 @@ void display() {
         glutSetWindowTitle(title);
     }
 
-
+    int num_ops = 0;
+    int n_pairs = 0;
     // Send particle data to device
     cudaMemcpy(device_particles, particles, num_particles * sizeof(Particle), cudaMemcpyHostToDevice);
     updateParticles<<<blockCount, blockSize>>>(device_particles, num_particles, delta);
-    auto start = std::chrono::high_resolution_clock::now();
-    auto end = start;
-    int num_ops = 0;
     cudaDeviceSynchronize();
+    auto start = std::chrono::high_resolution_clock::now();
     switch (mode) {
         case BruteForce:
-            start = std::chrono::high_resolution_clock::now();
             checkBruteForce<<<blockCount, blockSize>>>(device_particles, num_particles);
-            cudaDeviceSynchronize();
-            end = std::chrono::high_resolution_clock::now();
-            cumulativeTime += end - start;
-            bruteForceOps += num_ops;
             break;
         case SweepAndPrune:
-            start = std::chrono::high_resolution_clock::now();
-            // Placeholder
-            cudaDeviceSynchronize();
-            end = std::chrono::high_resolution_clock::now();
-            cumulativeTime += end - start;
-            sweepAndPruneOps += num_ops;
+            n_pairs = sweepAndPruneByX();
+            cudaMemcpy(device_pairs, pairs, max_pairs * sizeof(ParticlePair), cudaMemcpyHostToDevice);
+            checkSweep<<<blockCount, blockSize>>>(device_particles, device_pairs, n_pairs);
+            cudaMemcpy(pairs, device_pairs, max_pairs * sizeof(ParticlePair), cudaMemcpyDeviceToHost);
             break;
         case Quad:
-            start = std::chrono::high_resolution_clock::now();
             // Placeholder
-            cudaDeviceSynchronize();
-            end = std::chrono::high_resolution_clock::now();
-            cumulativeTime += end - start;
-            treeOps += num_ops;
+
             break;
         case Hash:
-            start = std::chrono::high_resolution_clock::now();
             // Placeholder
-            cudaDeviceSynchronize();
-            end = std::chrono::high_resolution_clock::now();
-            cumulativeTime += end - start;
-            spatialHashOps += num_ops;
             break;
     }
     
     // Retrieve particle data from device
     cudaMemcpy(particles, device_particles, num_particles * sizeof(Particle), cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();
+    auto end = std::chrono::high_resolution_clock::now();
+    cumulativeTime += end - start;
+    switch (mode) {
+        case BruteForce:
+            bruteForceOps += num_ops;
+            break;
+        case SweepAndPrune:
+            sweepAndPruneOps += num_ops;
+            break;
+        case Quad:
+            treeOps += num_ops;
+            break;
+        case Hash:
+            spatialHashOps += num_ops;
+            break;
+    }
 
     glutSwapBuffers();
 }
@@ -333,13 +342,16 @@ int main(int argc, char** argv) {
     num_edges = num_particles * 2;
     edgesByX = (Edge*) calloc(num_edges, sizeof(Edge));
     p_overlaps = new std::unordered_set<int>[num_particles];
+    max_pairs = num_particles * num_particles;
+    pairs = (ParticlePair*) calloc(max_pairs, sizeof(ParticlePair));
+
 
     for (int i = 0; i < num_particles; i++) {
         std::random_device rd;
         std::mt19937 gen(rd());
 
         // Randomize velocity, position, depth, and mass
-        std::uniform_real_distribution<float> velocity(-2, 2);
+        std::uniform_real_distribution<float> velocity(VEL_MIN, VEL_MAX);
         std::uniform_real_distribution<float> position_x(X_MIN + particle_size, X_MAX - particle_size);
         std::uniform_real_distribution<float> position_y(Y_MIN + particle_size, Y_MAX - particle_size);
         std::uniform_real_distribution<float> mass(1.5, 5);
@@ -367,7 +379,8 @@ int main(int argc, char** argv) {
     // Init the device particles
     cudaMalloc((void**)&device_particles, num_particles * sizeof(Particle));
     cudaMalloc((void**)&device_overlaps, num_particles * sizeof(p_overlaps));
-    // cudaMalloc((void**)&states, num_particles * sizeof(curandState));
+    cudaMalloc((void**)&device_pairs, max_pairs * sizeof(ParticlePair));
+
 
     initGL(&argc, argv);
 
@@ -377,7 +390,7 @@ int main(int argc, char** argv) {
     // Clean up
     cudaDeviceSynchronize();
     cudaFree(device_particles);
-    cudaFree(device_overlaps);
+    cudaFree(device_pairs);
 
     return 0;
 }
