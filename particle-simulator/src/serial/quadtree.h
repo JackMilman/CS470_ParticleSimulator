@@ -1,5 +1,3 @@
-#ifndef QUAD_TREE_H
-#define QUAD_TREE_H
 #include "vector_serial.h"
 #include "particle_serial.h"
 
@@ -27,7 +25,7 @@ class QuadTree {
     private: 
 
     int MAX_OBJECTS = 4;
-    int MAX_LEVELS = 2;
+    int MAX_LEVELS = 8;
 
     int level;
     Rectangle bounds;
@@ -45,11 +43,10 @@ class QuadTree {
 
     QuadTree(int level, Rectangle bounds);
     int getIndex(Particle* p);
-    // should return type be Particle?
-    std::vector<Particle*> getQuadrant(int i);
+    std::vector<Particle*> getQuadrant(Particle* p);
     void clear();
+    void initLevels();
 
     void insert(Particle* p);
     Rectangle getBoundary();
 };
-#endif // QUAD_TREE_H

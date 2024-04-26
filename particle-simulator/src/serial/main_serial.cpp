@@ -23,7 +23,7 @@
 #include "edge.cpp"
 #include "edge.h"
 #include "quadtree.cpp"
-#include "quadtree.h"
+// #include "quadtree.h"
 #include "spatial_hashing.h"
 #include "spatial_hashing.cpp"
 
@@ -58,10 +58,12 @@ int lastTime;
 
 // Testing variables
 std::chrono::duration<double, std::milli> cumulativeTime(0);
+
 unsigned long long bruteForceOps = 0;
 unsigned long long sweepAndPruneOps = 0;
 unsigned long long spatialHashOps = 0;
 unsigned long long treeOps = 0;
+
 std::chrono::duration<double> bruteForceTime(0);
 std::chrono::duration<double> sweepAndPruneTime(0);
 std::chrono::duration<double> spatialHashTime(0);
@@ -158,7 +160,7 @@ int bruteForceCheck(Particle& p) {
 int quadTreeCheck(Particle& p) {
     int num_ops = 0;
     // quadtree.checkCollisions(particles[i]);
-    std::vector<Particle*> neighbors = quadtree.getQuadrant(quadtree.getIndex(&p));
+    std::vector<Particle*> neighbors = quadtree.getQuadrant(&p);
     for (Particle* neighbor : neighbors) {
         // skip checking collision with self
         if (neighbor->getPosition().getX() == p.getPosition().getX() && 
@@ -356,8 +358,11 @@ int main(int argc, char** argv) {
 
     num_particles = DEFAULT_P_NUMBER;
     particle_size = DEFAULT_P_SIZE;
+    // int opt;
     bool explode = false;
-
+    // withSweep = false;
+    // withTree = false;
+    // withSpatialHash = false;
     if (!good_args(argc, argv, &explode)) {
         fprintf(stderr, "Usage: %s [%s] [%s] [%s (OPTIONAL)] [%s | %s | %s (OPTIONAL)]\n", argv[0],
             NUM_CMD, SIZE_CMD, EXPLODE_CMD, SWEEP_CMD, QUAD_CMD, SPATIAL_CMD);

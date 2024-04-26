@@ -8,6 +8,8 @@
 Rectangle::Rectangle() {
 }
 
+// x and y for "b" = bottom left corner
+// x and y for "t" = top right corner
 Rectangle::Rectangle(float xb, float yb, float xt, float yt) {
     bottom = Vector(xb, yb);
     upper = Vector(xb + xt, yb + yt);
@@ -35,11 +37,16 @@ bool Rectangle::contains(Particle* p){
     bool x_interval = false;
     bool y_interval = false;
 
-    if(bottom.getX() <= p->getVelocity().getX() and p->getVelocity().getX() <= upper.getX())
+    if(bottom.getX() <= p->getVelocity().getX() and p->getVelocity().getX() <= upper.getX()) {
         x_interval = true;
+        printf("true\n");
+    }
 
-    if(bottom.getY() <= p->getVelocity().getY() and p->getVelocity().getY() <= upper.getY())
+
+    if(bottom.getY() <= p->getVelocity().getY() and p->getVelocity().getY() <= upper.getY()) {
         y_interval = true;
+        printf("true\n");
+    }
 
     return x_interval and y_interval;
 
@@ -53,21 +60,16 @@ std::vector<Particle*> QuadTree::getObjects(){
     return objs;
 }
 
-void QuadTree::insert(Particle* p){
-
+    void QuadTree::insert(Particle* p){
     objs.push_back(p);
-
     // create child nodes
-    if(nodes[0] == NULL and level <= MAX_LEVELS)
-        split();
-
-
+    // if(nodes[0] == NULL and level <= MAX_LEVELS)
+    //     split();
     for(int quadrant = 0; quadrant < 4; ++quadrant){
         if(nodes[quadrant] != NULL && nodes[quadrant]->getBoundary().contains(p)){
             nodes[quadrant]->insert(p);
         }
     }
-
 }
 
 QuadTree::QuadTree(int blevel, Rectangle b){
@@ -76,6 +78,20 @@ QuadTree::QuadTree(int blevel, Rectangle b){
 
     for(int quadrant = 0; quadrant < 4; ++quadrant)
         nodes[quadrant] = NULL;
+    initLevels();
+}
+
+void QuadTree::initLevels(){
+    if (level < MAX_LEVELS){
+        if (nodes[0] == NULL) {
+            split();
+        } 
+
+        for (int i = 0; i < 4; i++) {
+            nodes[i]->split();
+            nodes[i]->initLevels();
+        }
+    }
 }
 
 
@@ -87,13 +103,20 @@ int QuadTree::getIndex(Particle* p){
     return -1;
 }
 
-std::vector<Particle*> QuadTree::getQuadrant(int i)
+std::vector<Particle*> QuadTree::getQuadrant(Particle* p)
 {
-    if (i >= 0 && i <= 3)
-    {
-        return nodes[i]->getObjects();
+    // printf("getQuad\n");
+    if (level >= MAX_LEVELS || nodes[0] == NULL) {
+        // printf("Base Case\n");
+        return getObjects();
     }
-    return getObjects();
+
+    int index = getIndex(p);
+    // printf("Got index %d\n", index);
+    // if (index >= 0 && index <= 3)
+    // {
+        return nodes[index]->getQuadrant(p);
+    // }
 }
 
 std::vector<Particle*> QuadTree::retrieve(Particle* p){
@@ -107,6 +130,8 @@ std::vector<Particle*> QuadTree::retrieve(Particle* p){
 }
 
 void QuadTree::split(){
+    // printf("Split\n");
+
     float subWidth = (float)bounds.getWidth()/2.0; 
     float subHeight = (float)bounds.getHeight()/2.0; 
 
