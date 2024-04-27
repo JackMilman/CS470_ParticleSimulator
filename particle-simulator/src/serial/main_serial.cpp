@@ -159,7 +159,6 @@ int bruteForceCheck(Particle& p) {
 
 int quadTreeCheck(Particle& p) {
     int num_ops = 0;
-    // quadtree.checkCollisions(particles[i]);
     std::vector<Particle*> neighbors = quadtree.getQuadrant(&p);
     for (Particle* neighbor : neighbors) {
         // skip checking collision with self
@@ -168,9 +167,8 @@ int quadTreeCheck(Particle& p) {
             continue;
         } else {
             num_ops++;
-            // neighbor[0] seems unsafe
-            if (p.collidesWith(neighbor[0])) {
-                p.resolveCollision(neighbor[0]);
+            if (p.collidesWith(*neighbor)) {
+                p.resolveCollision(*neighbor);
             }
         }
     }
