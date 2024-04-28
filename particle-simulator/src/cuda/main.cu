@@ -24,6 +24,8 @@
 #include "edge.cuh"
 #include "particle_pair.cu"
 #include "particle_pair.cuh"
+#include "quadtree.cu"
+// #include "quadtree.cuh"
 
 #include <curand.h>
 #include <curand_kernel.h>
@@ -47,6 +49,8 @@ Particle* device_particles;
 enum modes {BruteForce, SweepAndPrune, Quad, Hash};
 int mode = BruteForce;
 
+// Rectangle rectangle = Rectangle((float) X_MIN, (float) Y_MIN, (float) X_MAX, (float) Y_MAX);
+// QuadTree quadtree = QuadTree(0, rectangle);
 Edge* edgesByX;
 int num_edges;
 int max_pairs;
@@ -70,6 +74,9 @@ std::chrono::duration<double> spatialHashTime(0);
 // GL functionality
 bool initGL(int *argc, char **argv);
 
+void iterateNeighbors(Particle* d_particles, std::unordered_set<Particle*> neighbors, int num_neighbors);
+
+
 void sortByX(Edge* edges) {
     // Simple insertion sort for the particles, sorting by their x-positions. This is to be used in sweep-and-prune.
     for (int i = 1; i < num_edges; i++) {
@@ -90,6 +97,20 @@ void sortByX(Edge* edges) {
         }
     }
 }
+
+// A converter to place Quadtree particles into an array 
+// Particle* quadTreeSetToArray(std::unordered_set<Particle*> set, int* size) {
+//     Particle** parts;
+//     cudaMalloc((void**)&parts, sizeof(Particle) * num_particles);
+
+//     int index = 0;
+//     for (auto itr = set.begin(); itr != set.end(); ++itr) {
+//         parts[index] = *itr;
+//         index++;
+//     }
+//     *size = index + 1;
+//     return parts[0];
+// }
 
 // A simple check to determine if a particle pair has already been added to our overlap tracker.
 bool resolved(int p_edge, int other) {
@@ -138,6 +159,14 @@ __global__ void checkBruteForce(Particle* d_particles, int n_particles) {
     }
 }
 
+// __global__ void QuadTreeInsert(Particle* d_particles, int n_particles, QuadTree quadtree) {
+//     int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+//     for (int j = i + 1; j < n_particles; j++) {
+//         quadtree.insert(&d_particles[i]);
+//     }
+// }
+
 __global__ void checkSweep(Particle* d_particles, ParticlePair* d_pairs, int n_pairs) {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
@@ -149,6 +178,37 @@ __global__ void checkSweep(Particle* d_particles, ParticlePair* d_pairs, int n_p
         }
     }
 }
+
+// __global__ void checkQuadrant(Particle* d_particles, QuadTree quadtree, int num_particles) {
+        
+//     int index = blockIdx.x * blockDim.x + threadIdx.x;
+//     int stride = blockDim.x * gridDim.x;
+//     ////// get quadrant array of Particles per Particle //////
+//     for (int i = index; i < num_particles; i+=stride) {
+//         Particle** quadParticles;
+//         cudaMalloc((void**)&quadParticles, sizeof(Particle) * num_particles);
+//         std::unordered_set<Particle*> set = quadtree.getQuadrant(&d_particles[i]);
+
+//         int quad_index = 0;
+//         for (auto itr = set.begin(); itr != set.end(); ++itr) {
+//             quadParticles[quad_index] = *itr;
+//             quad_index++;
+//         }
+
+
+//         ////// iterate each quadrant array //////
+//         for (int j = 0; j < quad_index+1; j++) {
+//             if (quadParticles[0][i].getPosition().getX() == d_particles[i].getPosition().getX() && 
+//                     quadParticles[0][i].getPosition().getY() == d_particles[i].getPosition().getY()) {
+//                     continue;
+//             } else {
+//                 if (d_particles[i].collidesWith(quadParticles[0][i])) {
+//                     d_particles[i].resolveCollision(quadParticles[0][i]);
+//                 }
+//             }
+//         }
+//     }
+// }
 
 // Update the position of the particles and check for wall collisions
 __global__ void updateParticles(Particle* d_particles, int n_particles, float deltaTime) {
@@ -227,8 +287,17 @@ void display() {
             cudaMemcpy(pairs, device_pairs, max_pairs * sizeof(ParticlePair), cudaMemcpyDeviceToHost);
             break;
         case Quad:
-            // Placeholder
+            ////////////    QuadTree Implementation - See analysis for explanation on CPU-GPU dependencies      ////////////
 
+            // quadtree.clear();
+            // QuadTreeInsert<<<blockCount, blockSize>>>(device_particles, num_particles, quadtree);
+            // Particle particle = device_particles[i+1];
+            // Particle* p_pointer = &particle;
+            // Particle* quadParticles = quadTreeSetToArray(quadtree.getQuadrant(&device_particles[i]), &quadrantSize);
+            // std::unordered_set<Particle*> set = quadtree.getQuadrant(p_pointer);
+            // checkQuadrant<<<blockCount, blockSize>>>(device_particles, quadtree, num_particles);
+            // Particle* quadParticles = quadTreeSetToArray(quadtree.getQuadrant());
+            // checkQuadrant<<<blockCount, blockSize>>>(device_particles);
             break;
         case Hash:
             // Placeholder
@@ -373,6 +442,8 @@ int main(int argc, char** argv) {
     for (int i = 0; i < num_particles; i++) {
         edgesByX[i*2] = Edge(i, false);
         edgesByX[i*2 + 1] = Edge(i, true);
+
+        // quadtree.insert(&particles[i]);
     }
     sortByX(edgesByX);
 
