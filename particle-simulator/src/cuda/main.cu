@@ -26,6 +26,8 @@
 #include "particle_pair.cuh"
 #include "quadtree.cu"
 // #include "quadtree.cuh"
+#include "spatial_hashing.cu"
+#include "spatial_hashing.cuh"
 
 #include <curand.h>
 #include <curand_kernel.h>
@@ -58,6 +60,10 @@ std::unordered_set<int>* p_overlaps;
 std::unordered_set<int>* device_overlaps;
 ParticlePair* pairs;
 ParticlePair* device_pairs;
+
+float cellSize = DEFAULT_P_SIZE;
+SpatialHash spatialHash(cellSize);
+
 
 int lastTime;
 
@@ -167,6 +173,7 @@ __global__ void checkBruteForce(Particle* d_particles, int n_particles) {
 //     }
 // }
 
+
 __global__ void checkSweep(Particle* d_particles, ParticlePair* d_pairs, int n_pairs) {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = blockDim.x * gridDim.x;
@@ -271,6 +278,16 @@ void display() {
 
     int num_ops = 0;
     int n_pairs = 0;
+
+    int storageSize = 0;
+    int* d_storageSize;
+    cudaMalloc((void**)&d_storageSize, sizeof(int));
+    cudaMemcpy(d_storageSize, &storageSize, sizeof(int), cudaMemcpyHostToDevice);
+
+    int* d_keys, *d_particleIndices;
+    cudaMalloc((void**)&d_keys, num_particles * sizeof(int));
+    cudaMalloc((void**)&d_particleIndices, num_particles * sizeof(int));
+
     // Send particle data to device
     cudaMemcpy(device_particles, particles, num_particles * sizeof(Particle), cudaMemcpyHostToDevice);
     updateParticles<<<blockCount, blockSize>>>(device_particles, num_particles, delta);
@@ -300,9 +317,14 @@ void display() {
             // checkQuadrant<<<blockCount, blockSize>>>(device_particles);
             break;
         case Hash:
-            // Placeholder
+            spatialHash.clear();
+            insertParticles<<<blockCount, blockSize>>>(device_particles, num_particles, cellSize, d_storageSize, d_keys, d_particleIndices);
+            cudaDeviceSynchronize();
+            queryParticles<<<blockCount, blockSize>>>(device_particles, num_particles, cellSize, d_storageSize, d_keys, d_particleIndices);
             break;
     }
+    cudaMemcpy(&storageSize, d_storageSize, sizeof(int), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
     
     // Retrieve particle data from device
     cudaMemcpy(particles, device_particles, num_particles * sizeof(Particle), cudaMemcpyDeviceToHost);
@@ -323,6 +345,10 @@ void display() {
             spatialHashOps += num_ops;
             break;
     }
+
+    cudaFree(d_keys);
+    cudaFree(d_particleIndices);
+    cudaFree(d_storageSize);
 
     glutSwapBuffers();
 }
@@ -452,7 +478,13 @@ int main(int argc, char** argv) {
     cudaMalloc((void**)&device_overlaps, num_particles * sizeof(p_overlaps));
     cudaMalloc((void**)&device_pairs, max_pairs * sizeof(ParticlePair));
 
+    SpatialHash* spatialHash;
+    cudaMalloc(&spatialHash, sizeof(SpatialHash));
+    float cellSize = 2 * particle_size;  // Cell size can be twice the particle size
+    SpatialHash newHash(cellSize);
+    cudaMemcpy(spatialHash, &newHash, sizeof(SpatialHash), cudaMemcpyHostToDevice);
 
+    
     initGL(&argc, argv);
 
     lastTime = 0;
