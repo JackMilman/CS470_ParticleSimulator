@@ -355,6 +355,8 @@ bool good_args(int argc, char** argv, bool* explode) {
                 num_edges = num_particles * 2;
                 edgesByX = (Edge*) calloc(num_edges, sizeof(Edge));
                 p_overlaps = new std::unordered_set<int>[num_particles];
+                max_pairs = num_particles * num_particles;
+                pairs = (ParticlePair*) calloc(max_pairs, sizeof(ParticlePair));
                 break;
             case Quad:
                 // rectangle = new Rectangle((float) X_MIN, (float) Y_MIN, (float) X_MAX, (float) Y_MAX);
