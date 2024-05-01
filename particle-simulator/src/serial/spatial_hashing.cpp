@@ -14,6 +14,8 @@ void SpatialHash::insert(Particle* particle) {
 }
 
 std::vector<Particle*> SpatialHash::query(const Particle* particle) const {
+    // Vector represents the 2-dimensional positional and velocity information of a particle.
+    // Not to be confused with the data structure defined in std::vector.
     Vector position = particle->getPosition();
     int cellX = static_cast<int>(position.getX() / cellSize);
     int cellY = static_cast<int>(position.getY() / cellSize);
