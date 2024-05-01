@@ -11,14 +11,15 @@ make
 Once the project has compiled, either `./app` or `./app_serial` will launch their respective versions of the program, either in parallel or serial. A list of additional command-line arguments can be found through the use of -h.
 ```
 ./app -h
-    Usage: ./app_serial [-n num_particles] [-sp particle_size] [-e explosion (OPTIONAL)] [-w with_sweep (OPTIONAL)] [-h help (OPTIONAL)]
+    Usage: ./app [-n num_particles] [-s particle_size] [-e explode_from_center (OPTIONAL)] [-w sweep_and_prune | -t quad_tree | -g spatial_hash (OPTIONAL)]
 ```
+Alternatively, `bash benchmark.sh` will run all of the benchmark scripts inside of `particle-simulator` and compile their results in `test_results`.
 
 ## Parallelized
 The physics calculations and collision detection remain as of yet largely unchanged, with progress on the sweep-and-prune algorithm's parallelized form incomplete.
 
 ### Sweep and Prune
-This algorithm seems parallelizable with a high degree of accuracy due to the fact that, once collated, we essentially just have a list of exclusively those particles with a higher likelihood of overlapping. Similar to how the basic Brute-Force algorithm resolves collisions on particles it is overlapping with, this seems to imply it would be a direct improvement over the brute-force algorithm, since the sweep and prune method would perform finer-grained collision checks against far fewer particles (and thus likely run faster).
+This algorithm was able to be partially parallelized through the use of a pair data structure, linking the indices of two particles that overlapped on the x-axis and sending all such overlapping pairs off to the GPU to resolve. However, we could not parallelize the sorting and pruning phase of the algorithm itself, as insertion sort (which was chosen for its low space-complexity and near-O(n) runtime with mostly sorted lists) cannot be parallelized. Similarly, the pruning phase could not be parallelized effectively using CUDA, as it is impossible to know which of the particles might be overlapping before the sweep, and the traversal relies on knowing that particles are only overlapping if their right-most edge has not been reached.
 
 ## Serialized
 
