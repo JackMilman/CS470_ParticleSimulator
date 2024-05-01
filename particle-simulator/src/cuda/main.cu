@@ -25,7 +25,6 @@
 #include "particle_pair.cu"
 #include "particle_pair.cuh"
 #include "quadtree.cu"
-// #include "quadtree.cuh"
 #include "spatial_hashing.cu"
 #include "spatial_hashing.cuh"
 
@@ -39,7 +38,6 @@
 #define SIZE_CMD "-s particle_size"
 #define EXPLODE_CMD "-e explode_from_center"
 #define SWEEP_CMD "-w sweep_and_prune"
-#define QUAD_CMD "-t quad_tree"
 #define SPATIAL_CMD "-g spatial_hash"
 #define HELP_CMD "-h help"
 
@@ -48,11 +46,9 @@ float particle_size;
 Particle* particles;
 Particle* device_particles;
 
-enum modes {BruteForce, SweepAndPrune, Quad, Hash};
+enum modes {BruteForce, SweepAndPrune, Hash};
 int mode = BruteForce;
 
-// Rectangle rectangle = Rectangle((float) X_MIN, (float) Y_MIN, (float) X_MAX, (float) Y_MAX);
-// QuadTree quadtree = QuadTree(0, rectangle);
 Edge* edgesByX;
 int num_edges;
 int max_pairs;
@@ -71,7 +67,6 @@ std::chrono::duration<double, std::milli> cumulativeTime(0);
 unsigned long long bruteForceOps = 0;
 unsigned long long sweepAndPruneOps = 0;
 unsigned long long spatialHashOps = 0;
-unsigned long long treeOps = 0;
 std::chrono::duration<double> bruteForceTime(0);
 std::chrono::duration<double> sweepAndPruneTime(0);
 std::chrono::duration<double> spatialHashTime(0);
@@ -199,9 +194,6 @@ void display() {
             case SweepAndPrune:
                 std::cout << "Sweep and Prune Ops: " << sweepAndPruneOps << "\n";
                 break;
-            case Quad:
-                std::cout << "Quadtree Ops: " << treeOps << "\n";
-                break;
             case Hash:
                 std::cout << "Spatial Hash Ops: " << spatialHashOps << "\n";
                 break;
@@ -245,9 +237,6 @@ void display() {
             checkSweep<<<blockCount, blockSize>>>(device_particles, device_pairs, n_pairs);
             cudaMemcpy(pairs, device_pairs, max_pairs * sizeof(ParticlePair), cudaMemcpyDeviceToHost);
             break;
-        case Quad:
-            ////////////    QuadTree Implementation - See analysis for explanation on CPU-GPU dependencies      ////////////
-            break;
         case Hash:
             spatialHash.clear();
             insertParticles<<<blockCount, blockSize>>>(device_particles, num_particles, cellSize, d_storageSize, d_keys, d_particleIndices);
@@ -269,9 +258,6 @@ void display() {
             break;
         case SweepAndPrune:
             sweepAndPruneOps += num_ops;
-            break;
-        case Quad:
-            treeOps += num_ops;
             break;
         case Hash:
             spatialHashOps += num_ops;
@@ -314,7 +300,7 @@ bool initGL(int *argc, char **argv)
 bool good_args(int argc, char** argv, bool* explode) {
      // Command line options
     int opt;
-    while ((opt = getopt(argc, argv, "n:s:ewhtg")) != -1) {
+    while ((opt = getopt(argc, argv, "n:s:ewhg")) != -1) {
         switch (opt) {
             case 'n':
                 num_particles = strtol(optarg, NULL, 10);
@@ -330,11 +316,6 @@ bool good_args(int argc, char** argv, bool* explode) {
                 if (mode != BruteForce)
                     return false;
                 mode = SweepAndPrune;
-                break;
-            case 't':
-                if (mode != BruteForce)
-                    return false;
-                mode = Quad;
                 break;
             case 'g':
                 if (mode != BruteForce)
@@ -358,10 +339,6 @@ bool good_args(int argc, char** argv, bool* explode) {
                 max_pairs = num_particles * num_particles;
                 pairs = (ParticlePair*) calloc(max_pairs, sizeof(ParticlePair));
                 break;
-            case Quad:
-                // rectangle = new Rectangle((float) X_MIN, (float) Y_MIN, (float) X_MAX, (float) Y_MAX);
-                // quadtree = new QuadTree(0, *rectangle);
-                break;
         }
     }
     return true;
@@ -375,18 +352,12 @@ int main(int argc, char** argv) {
     bool explode = false;
 
     if (!good_args(argc, argv, &explode)) {
-        fprintf(stderr, "Usage: %s [%s] [%s] [%s (OPTIONAL)] [%s | %s | %s (OPTIONAL)]\n", argv[0],
-            NUM_CMD, SIZE_CMD, EXPLODE_CMD, SWEEP_CMD, QUAD_CMD, SPATIAL_CMD);
+        fprintf(stderr, "Usage: %s [%s] [%s] [%s (OPTIONAL)] [%s | %s (OPTIONAL)]\n", argv[0],
+            NUM_CMD, SIZE_CMD, EXPLODE_CMD, SWEEP_CMD, SPATIAL_CMD);
         exit(EXIT_FAILURE);
     }
 
     particles = (Particle*) calloc(num_particles, sizeof(Particle));
-    // num_edges = num_particles * 2;
-    // edgesByX = (Edge*) calloc(num_edges, sizeof(Edge));
-    // p_overlaps = new std::unordered_set<int>[num_particles];
-    // max_pairs = num_particles * num_particles;
-    // pairs = (ParticlePair*) calloc(max_pairs, sizeof(ParticlePair));
-
 
     for (int i = 0; i < num_particles; i++) {
         std::random_device rd;
