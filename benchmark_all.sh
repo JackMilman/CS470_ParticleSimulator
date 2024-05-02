@@ -1,8 +1,8 @@
 #!/bin/bash
 
+cd particle-simulator
 make clean
 make
-
 echo "//////////////// SERIAL TESTS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"
 bash serial_benchmark.sh > test_outputs/serial.txt
 echo

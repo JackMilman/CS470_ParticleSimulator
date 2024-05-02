@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for size in 0.025 0.01
+for size in 0.01 0.005
 do
     echo "Particle Size: ${size}"
     for n_particles in 100 250 500 750 1000 1500 2000

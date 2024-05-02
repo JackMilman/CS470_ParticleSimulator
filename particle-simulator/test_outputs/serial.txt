@@ -1,0 +1,98 @@
+find . -name "*.o" -delete
+find . -name "app" -delete
+find . -name "app_serial" -delete
+nvcc -x cu -gencode=arch=compute_52,code=\"sm_52,compute_52\" -I. -dc -L/usr/lib/x86_64-linux-gnu -lGLEW -lGL -lGLU -lglut src/cuda/main.cu -o src/cuda/main.o
+nvcc -gencode=arch=compute_52,code=\"sm_52,compute_52\" src/cuda/main.o -o app -L/usr/lib/x86_64-linux-gnu -lGLEW -lGL -lGLU -lglut
+g++ -std=c++11 -I. -o app_serial src/serial/main_serial.cpp -L/usr/lib/x86_64-linux-gnu -lGLEW -lGL -lGLU -lglut
+Particle Size: 
+---100 Particles---
+--Brute Force--
+Average time per frame: 0.5369702940 ms
+Brute Force Ops: 9990000
+--Sweep and Prune--
+Average time per frame: 0.5388596280 ms
+Sweep and Prune Ops: 262655
+--Spatial Hash--
+Average time per frame: 0.5429185460 ms
+Spatial Hash Ops: 108139
+--Quad Tree--
+
+---250 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+
+---500 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+
+---750 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+
+---1000 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+
+---1500 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+
+---2000 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+
+Particle Size: 
+---100 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+
+---250 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+
+---500 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+
+---750 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+
+---1000 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+
+---1500 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+
+---2000 Particles---
+--Brute Force--
+--Sweep and Prune--
+--Spatial Hash--
+--Quad Tree--
+

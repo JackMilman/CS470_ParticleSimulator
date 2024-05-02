@@ -1,0 +1,3 @@
+Particle Size: 0.025
+---100 Particles---
+--Brute Force
