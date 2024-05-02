@@ -1,3 +1,156 @@
-Particle Size: 0.025
+Particle Size: 0.01
 ---100 Particles---
 --Brute Force
+Average time per frame: 0.0575480930 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 0.2391734140 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.0871212790 ms
+Spatial Hash Ops: 0
+
+---250 Particles---
+--Brute Force
+Average time per frame: 0.0840702420 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 0.6781646950 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.1171740510 ms
+Spatial Hash Ops: 0
+
+---500 Particles---
+--Brute Force
+Average time per frame: 0.1379180150 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 1.7527641780 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.1638485930 ms
+Spatial Hash Ops: 0
+
+---750 Particles---
+--Brute Force
+Average time per frame: 0.1911756140 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 3.2990104080 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.2134534920 ms
+Spatial Hash Ops: 0
+
+---1000 Particles---
+--Brute Force
+Average time per frame: 0.4081376130 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 3.7688821230 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.2586535260 ms
+Spatial Hash Ops: 0
+
+---1500 Particles---
+--Brute Force
+Average time per frame: 0.4669829700 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 4.8602877530 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.3804384110 ms
+Spatial Hash Ops: 0
+
+---2000 Particles---
+--Brute Force
+Average time per frame: 0.7404344510 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 7.0649008330 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.5448344930 ms
+Spatial Hash Ops: 0
+
+Particle Size: 0.005
+---100 Particles---
+--Brute Force
+Average time per frame: 0.0532357950 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 0.2272802320 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.0845377960 ms
+Spatial Hash Ops: 0
+
+---250 Particles---
+--Brute Force
+Average time per frame: 0.0783204910 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 0.6389010350 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.1109267710 ms
+Spatial Hash Ops: 0
+
+---500 Particles---
+--Brute Force
+Average time per frame: 0.1183850330 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 1.6836166390 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.1532493140 ms
+Spatial Hash Ops: 0
+
+---750 Particles---
+--Brute Force
+Average time per frame: 0.1683057750 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 3.0941682480 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.1955182100 ms
+Spatial Hash Ops: 0
+
+---1000 Particles---
+--Brute Force
+Average time per frame: 0.2276736820 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 3.6267396650 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.2355746260 ms
+Spatial Hash Ops: 0
+
+---1500 Particles---
+--Brute Force
+Average time per frame: 0.3476261970 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 4.6194496480 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.3105833310 ms
+Spatial Hash Ops: 0
+
+---2000 Particles---
+--Brute Force
+Average time per frame: 0.4590793030 ms
+Brute Force Ops: 0
+--Sweep and Prune--
+Average time per frame: 6.3390190600 ms
+Sweep and Prune Ops: 0
+--Spatial Hash--
+Average time per frame: 0.3817328750 ms
+Spatial Hash Ops: 0
+

@@ -7,92 +7,198 @@ g++ -std=c++11 -I. -o app_serial src/serial/main_serial.cpp -L/usr/lib/x86_64-li
 Particle Size: 
 ---100 Particles---
 --Brute Force--
-Average time per frame: 0.5369702940 ms
+Average time per frame: 0.5554108820 ms
 Brute Force Ops: 9990000
 --Sweep and Prune--
-Average time per frame: 0.5388596280 ms
-Sweep and Prune Ops: 262655
+Average time per frame: 0.2922204410 ms
+Sweep and Prune Ops: 102482
 --Spatial Hash--
-Average time per frame: 0.5429185460 ms
-Spatial Hash Ops: 108139
+Average time per frame: 0.5517266790 ms
+Spatial Hash Ops: 101493
 --Quad Tree--
+Average time per frame: 0.9545828230 ms
+Quadtree Ops: 9890100
 
 ---250 Particles---
 --Brute Force--
+Average time per frame: 2.9243211420 ms
+Brute Force Ops: 62437500
 --Sweep and Prune--
+Average time per frame: 1.3200065640 ms
+Sweep and Prune Ops: 644207
 --Spatial Hash--
+Average time per frame: 1.4036826740 ms
+Spatial Hash Ops: 259389
 --Quad Tree--
+Average time per frame: 5.0564310070 ms
+Quadtree Ops: 62187750
 
 ---500 Particles---
 --Brute Force--
+Average time per frame: 5.1251776940 ms
+Brute Force Ops: 249750000
 --Sweep and Prune--
+Average time per frame: 3.5428326330 ms
+Sweep and Prune Ops: 2641967
 --Spatial Hash--
+Average time per frame: 2.5830554750 ms
+Spatial Hash Ops: 541577
 --Quad Tree--
+Average time per frame: 6.2104455040 ms
+Quadtree Ops: 249250500
 
 ---750 Particles---
 --Brute Force--
+Average time per frame: 6.0843965040 ms
+Brute Force Ops: 561937500
 --Sweep and Prune--
+Average time per frame: 4.1214344260 ms
+Sweep and Prune Ops: 5940496
 --Spatial Hash--
+Average time per frame: 2.3911463820 ms
+Spatial Hash Ops: 835683
 --Quad Tree--
+Average time per frame: 10.8789977680 ms
+Quadtree Ops: 561188250
 
 ---1000 Particles---
 --Brute Force--
+Average time per frame: 9.8578470780 ms
+Brute Force Ops: 999000000
 --Sweep and Prune--
+Average time per frame: 7.1579123020 ms
+Sweep and Prune Ops: 18562547
 --Spatial Hash--
+Average time per frame: 2.5591609820 ms
+Spatial Hash Ops: 1177010
 --Quad Tree--
+Average time per frame: 18.6624950160 ms
+Quadtree Ops: 998000998
 
 ---1500 Particles---
 --Brute Force--
+Average time per frame: 21.3395742820 ms
+Brute Force Ops: 2247750000
 --Sweep and Prune--
+Average time per frame: 9.8302204170 ms
+Sweep and Prune Ops: 26092141
 --Spatial Hash--
+Average time per frame: 2.5565029930 ms
+Spatial Hash Ops: 2405692
 --Quad Tree--
+Average time per frame: 41.6219354770 ms
+Quadtree Ops: 2246251499
 
 ---2000 Particles---
 --Brute Force--
+Average time per frame: 37.3117307870 ms
+Brute Force Ops: 3996000000
 --Sweep and Prune--
+Average time per frame: 26.5144004240 ms
+Sweep and Prune Ops: 71372019
 --Spatial Hash--
+Average time per frame: 2.7473726800 ms
+Spatial Hash Ops: 2919987
 --Quad Tree--
+Average time per frame: 73.5122707960 ms
+Quadtree Ops: 3994001959
 
 Particle Size: 
 ---100 Particles---
 --Brute Force--
+Average time per frame: 0.5442118340 ms
+Brute Force Ops: 9990000
 --Sweep and Prune--
+Average time per frame: 0.2052465580 ms
+Sweep and Prune Ops: 49740
 --Spatial Hash--
+Average time per frame: 0.5485548430 ms
+Spatial Hash Ops: 100413
 --Quad Tree--
+Average time per frame: 0.9656325280 ms
+Quadtree Ops: 9890100
 
 ---250 Particles---
 --Brute Force--
+Average time per frame: 2.9039232490 ms
+Brute Force Ops: 62437500
 --Sweep and Prune--
+Average time per frame: 0.8346782600 ms
+Sweep and Prune Ops: 315354
 --Spatial Hash--
+Average time per frame: 1.3980224750 ms
+Spatial Hash Ops: 252753
 --Quad Tree--
+Average time per frame: 5.1152285960 ms
+Quadtree Ops: 62187750
 
 ---500 Particles---
 --Brute Force--
+Average time per frame: 5.1531835210 ms
+Brute Force Ops: 249750000
 --Sweep and Prune--
+Average time per frame: 2.4599191700 ms
+Sweep and Prune Ops: 1271811
 --Spatial Hash--
+Average time per frame: 2.5988501140 ms
+Spatial Hash Ops: 510953
 --Quad Tree--
+Average time per frame: 6.2315007390 ms
+Quadtree Ops: 249250500
 
 ---750 Particles---
 --Brute Force--
+Average time per frame: 6.0586904660 ms
+Brute Force Ops: 561937500
 --Sweep and Prune--
+Average time per frame: 2.9064844760 ms
+Sweep and Prune Ops: 2874388
 --Spatial Hash--
+Average time per frame: 2.3190051370 ms
+Spatial Hash Ops: 773326
 --Quad Tree--
+Average time per frame: 10.9601202010 ms
+Quadtree Ops: 561188250
 
 ---1000 Particles---
 --Brute Force--
+Average time per frame: 9.6156421350 ms
+Brute Force Ops: 999000000
 --Sweep and Prune--
+Average time per frame: 3.3737080740 ms
+Sweep and Prune Ops: 5134189
 --Spatial Hash--
+Average time per frame: 2.4406348200 ms
+Spatial Hash Ops: 1036800
 --Quad Tree--
+Average time per frame: 18.7243246600 ms
+Quadtree Ops: 998000988
 
 ---1500 Particles---
 --Brute Force--
+Average time per frame: 21.2672061870 ms
+Brute Force Ops: 2247750000
 --Sweep and Prune--
+Average time per frame: 4.7346811690 ms
+Sweep and Prune Ops: 12066499
 --Spatial Hash--
+Average time per frame: 2.3527060570 ms
+Spatial Hash Ops: 1580428
 --Quad Tree--
+Average time per frame: 41.2055979640 ms
+Quadtree Ops: 2246251482
 
 ---2000 Particles---
 --Brute Force--
+Average time per frame: 37.4323425810 ms
+Brute Force Ops: 3996000000
 --Sweep and Prune--
+Average time per frame: 7.9016860190 ms
+Sweep and Prune Ops: 20809824
 --Spatial Hash--
+Average time per frame: 2.5511236030 ms
+Spatial Hash Ops: 2143160
 --Quad Tree--
+Average time per frame: 72.0600039620 ms
+Quadtree Ops: 3994001934
 

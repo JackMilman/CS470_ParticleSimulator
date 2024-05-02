@@ -1,0 +1,64 @@
+Particle Size: 0.005
+---100 Particles---
+Average time per frame: 0.0909894810 ms
+Spatial Hash Ops: 0
+---250 Particles---
+Average time per frame: 0.1120024880 ms
+Spatial Hash Ops: 0
+---500 Particles---
+Average time per frame: 0.1542859810 ms
+Spatial Hash Ops: 0
+---1000 Particles---
+Average time per frame: 0.2351045320 ms
+Spatial Hash Ops: 0
+---2500 Particles---
+Average time per frame: 0.4598195620 ms
+Spatial Hash Ops: 0
+---5000 Particles---
+Average time per frame: 0.9820335880 ms
+Spatial Hash Ops: 0
+---7500 Particles---
+Average time per frame: 1.5666701400 ms
+Spatial Hash Ops: 0
+---10000 Particles---
+Average time per frame: 2.3418279470 ms
+Spatial Hash Ops: 0
+---15000 Particles---
+Average time per frame: 3.3810816520 ms
+Spatial Hash Ops: 0
+---20000 Particles---
+Average time per frame: 5.1072461580 ms
+Spatial Hash Ops: 0
+
+Particle Size: 0.0025
+---100 Particles---
+Average time per frame: 0.1000194290 ms
+Spatial Hash Ops: 0
+---250 Particles---
+Average time per frame: 0.1046956310 ms
+Spatial Hash Ops: 0
+---500 Particles---
+Average time per frame: 0.1503913680 ms
+Spatial Hash Ops: 0
+---1000 Particles---
+Average time per frame: 0.2229225700 ms
+Spatial Hash Ops: 0
+---2500 Particles---
+Average time per frame: 0.4208076040 ms
+Spatial Hash Ops: 0
+---5000 Particles---
+Average time per frame: 0.7647236670 ms
+Spatial Hash Ops: 0
+---7500 Particles---
+Average time per frame: 1.1552445800 ms
+Spatial Hash Ops: 0
+---10000 Particles---
+Average time per frame: 1.5308528120 ms
+Spatial Hash Ops: 0
+---15000 Particles---
+Average time per frame: 2.0710997210 ms
+Spatial Hash Ops: 0
+---20000 Particles---
+Average time per frame: 2.9815556400 ms
+Spatial Hash Ops: 0
+
