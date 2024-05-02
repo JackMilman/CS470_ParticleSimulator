@@ -187,19 +187,6 @@ void display() {
         std::cout << "Average time per frame: " 
               << std::fixed << std::setprecision(10) 
               << averageTime << " ms" << std::endl;
-        switch (mode) {
-            case BruteForce:
-                std::cout << "Brute Force Ops: " << bruteForceOps << "\n";
-                break;
-            case SweepAndPrune:
-                std::cout << "Sweep and Prune Ops: " << sweepAndPruneOps << "\n";
-                break;
-            case Hash:
-                std::cout << "Spatial Hash Ops: " << spatialHashOps << "\n";
-                break;
-            default:
-                break;
-        }
         exit(EXIT_SUCCESS);
     }
 
