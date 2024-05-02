@@ -16,10 +16,12 @@ Once the project has compiled, either `./app` or `./app_serial` will launch thei
 Alternatively, `bash benchmark.sh` will run all of the benchmark scripts inside of `particle-simulator` and compile their results in `test_results`.
 
 ## Parallelized
-The physics calculations and collision detection remain as of yet largely unchanged, with progress on the sweep-and-prune algorithm's parallelized form incomplete.
 
 ### Sweep and Prune
 This algorithm was able to be partially parallelized through the use of a pair data structure, linking the indices of two particles that overlapped on the x-axis and sending all such overlapping pairs off to the GPU to resolve. However, we could not parallelize the sorting and pruning phase of the algorithm itself, as insertion sort (which was chosen for its low space-complexity and near-O(n) runtime with mostly sorted lists) cannot be parallelized. Similarly, the pruning phase could not be parallelized effectively using CUDA, as it is impossible to know which of the particles might be overlapping before the sweep, and the traversal relies on knowing that particles are only overlapping if their right-most edge has not been reached.
+
+### Spatial Hashing
+
 
 ## Serialized
 
@@ -28,3 +30,5 @@ This algorithm utilizes vectors rather than a large array to resemble a quadtree
 
 ### Sweep and Prune
 A basic sweep-and-prune algorithm has been implemented with the intention of cutting down on spurious comparisons between particles that have no good likelihood of colliding. This algorithm performs a simple insertion sort on a list of "edges" for the axis-aligned bounding boxes of each particle, and then "sweeps" a line across the list of edges to perform finer-grained collision detection only for objects which are touched by the line at the same time.
+
+### Spatial Hashing
