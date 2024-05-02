@@ -1,8 +1,5 @@
 #!/bin/bash
 
-make clean
-make
-
 for size in 0.01 0.005
 do
     echo "Particle Size: ${PARTICLE_SIZE}"
