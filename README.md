@@ -13,7 +13,7 @@ Once the project has compiled, either `./app` or `./app_serial` will launch thei
 ./app -h
     Usage: ./app [-n num_particles] [-s particle_size] [-e explode_from_center (OPTIONAL)] [-w sweep_and_prune | -t quad_tree | -g spatial_hash (OPTIONAL)]
 ```
-Alternatively, `bash benchmark.sh` will run all of the benchmark scripts inside of `particle-simulator` and compile their results in `test_results`.
+Alternatively, `bash benchmark.sh` will run all of the benchmark scripts inside of `particle-simulator` and compile their results in `particle-simulator/test_results`.
 
 ## Parallelized
 
